@@ -153,12 +153,21 @@ _engine = None
 _session_factory = None
 
 
+def _ensure_async_url(url: str) -> str:
+    """Convert postgresql:// to postgresql+asyncpg:// for async driver."""
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+asyncpg://", 1)
+    return url
+
+
 def get_engine():
     global _engine
     if _engine is None:
         settings = get_settings()
         _engine = create_async_engine(
-            settings.database_url,
+            _ensure_async_url(settings.database_url),
             echo=False,
             pool_size=10,
             max_overflow=20,
