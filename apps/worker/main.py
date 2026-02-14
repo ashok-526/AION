@@ -91,6 +91,24 @@ async def notify_loop(interval: int):
         await asyncio.sleep(interval)
 
 
+async def health_server():
+    """Minimal HTTP health endpoint so Render free tier can run this as a web service."""
+    import os
+    from aiohttp import web
+
+    async def health(_request):
+        return web.Response(text="worker ok")
+
+    app = web.Application()
+    app.router.add_get("/health", health)
+    port = int(os.environ.get("PORT", 9000))
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    logger.info(f"Worker health server on :{port}")
+
+
 async def main():
     logger.info("Starting NewsPulse Worker...")
     settings = get_settings()
@@ -99,9 +117,10 @@ async def main():
     await init_db()
     logger.info("Database initialized")
 
-    # Run all loops concurrently
+    # Run all loops concurrently (+ health endpoint for Render free tier)
     try:
         await asyncio.gather(
+            health_server(),
             ingest_loop(settings.ingest_interval_seconds),
             cluster_loop(settings.trending_interval_seconds),
             enrich_loop(settings.enrich_interval_seconds),
