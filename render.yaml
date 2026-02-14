@@ -1,0 +1,61 @@
+databases:
+  - name: aion-db
+    plan: free
+    databaseName: pulse
+    user: pulse
+
+services:
+  # ── FastAPI Backend ────────────────────────────────────────
+  - type: web
+    name: aion-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aion-db
+          property: connectionString
+        # Render gives postgresql:// — we need postgresql+asyncpg://
+        # Set manually after first deploy (see instructions below)
+      - key: REDIS_URL
+        value: ""  # Set to your Upstash Redis URL
+      - key: NEWSAPI_KEY
+        sync: false
+      - key: OPENAI_KEY
+        sync: false
+      - key: ANTHROPIC_KEY
+        sync: false
+      - key: PERPLEXITY_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: ""  # Set to your Vercel frontend URL
+
+  # ── Background Worker ──────────────────────────────────────
+  - type: worker
+    name: aion-worker
+    runtime: docker
+    plan: free
+    dockerfilePath: ./apps/worker/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aion-db
+          property: connectionString
+      - key: REDIS_URL
+        value: ""  # Set to your Upstash Redis URL
+      - key: NEWSAPI_KEY
+        sync: false
+      - key: OPENAI_KEY
+        sync: false
+      - key: ANTHROPIC_KEY
+        sync: false
+      - key: PERPLEXITY_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
