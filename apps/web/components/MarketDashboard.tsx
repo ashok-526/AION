@@ -296,6 +296,30 @@ const TRENDING_CATEGORY_STYLES: Record<string, { gradient: string; icon: string 
   ai:         { gradient: "from-amber-900 to-amber-700", icon: "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5" },
 };
 
+interface LiveChannel {
+  id: string;
+  name: string;
+  channelId: string;
+}
+
+const LIVE_CHANNELS: LiveChannel[] = [
+  { id: "aljazeera", name: "Al Jazeera", channelId: "UCNye-wNBqNL5ZzHSJj3l8Bg" },
+  { id: "dw", name: "DW News", channelId: "UCknLrEdhRCp1aegoMqRaCZg" },
+  { id: "france24", name: "France 24", channelId: "UCQfwfsi5VrQ8yKZ-UWmAEFg" },
+  { id: "skynews", name: "Sky News", channelId: "UCoMdktPbSTixAyNGwb-UYkQ" },
+];
+
+function getLiveStreamEmbedUrl(channelId: string): string {
+  const params = new URLSearchParams({
+    channel: channelId,
+    autoplay: "1",
+    mute: "1",
+    rel: "0",
+    modestbranding: "1",
+  });
+  return `https://www.youtube-nocookie.com/embed/live_stream?${params.toString()}`;
+}
+
 function formatCategoryLabel(category: string): string {
   return category
     .split("-")
@@ -319,6 +343,7 @@ export default function MarketDashboard() {
   const [marketNewsLoading, setMarketNewsLoading] = useState(true);
   const [categoryNews, setCategoryNews] = useState<Record<string, FeedItem[]>>({});
   const [categoryNewsLoading, setCategoryNewsLoading] = useState(true);
+  const [liveChannelId, setLiveChannelId] = useState(LIVE_CHANNELS[0].id);
 
   // Check Visa status once
   useEffect(() => {
@@ -431,6 +456,7 @@ export default function MarketDashboard() {
   };
 
   const categoryEntries = Object.entries(categoryNews);
+  const activeLiveChannel = LIVE_CHANNELS.find((c) => c.id === liveChannelId) ?? LIVE_CHANNELS[0];
 
   return (
     <div className="h-full flex flex-col">
@@ -720,6 +746,53 @@ export default function MarketDashboard() {
               })}
             </div>
           )}
+        </div>
+
+        {/* Live News TV */}
+        <div className="border-t border-[var(--color-border)] bg-[#0a0a0a]">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600" />
+              </span>
+              <h4 className="text-[12px] font-bold uppercase tracking-wider text-white">
+                Live News
+              </h4>
+            </div>
+            <span className="text-[10px] text-white/40 font-medium">
+              {activeLiveChannel.name}
+            </span>
+          </div>
+
+          {/* Video player */}
+          <div className="mx-5 aspect-video border border-white/10 overflow-hidden bg-black">
+            <iframe
+              title={`${activeLiveChannel.name} live stream`}
+              src={getLiveStreamEmbedUrl(activeLiveChannel.channelId)}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              className="w-full h-full"
+            />
+          </div>
+
+          {/* Channel selector */}
+          <div className="px-5 py-3 flex flex-wrap gap-1.5">
+            {LIVE_CHANNELS.map((channel) => (
+              <button
+                key={channel.id}
+                onClick={() => setLiveChannelId(channel.id)}
+                className={`px-3 py-1.5 text-[11px] font-medium transition-all cursor-pointer ${
+                  channel.id === activeLiveChannel.id
+                    ? "bg-white text-black"
+                    : "bg-white/8 text-white/50 hover:bg-white/15 hover:text-white/80"
+                }`}
+              >
+                {channel.name}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

@@ -399,9 +399,20 @@ function HomeInner() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[var(--color-border)]">
-        <div className="max-w-[1280px] mx-auto px-5 py-3 text-center text-[11px] text-[var(--color-text-tertiary)]">
-          &copy; {new Date().getFullYear()} AiON
+      <footer className="border-t border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+        <div className="max-w-[1280px] mx-auto px-5 py-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div className="text-[11px] text-[var(--color-text-tertiary)]">
+              &copy; {new Date().getFullYear()} AiON. All rights reserved.
+            </div>
+            <div className="flex items-center gap-4 text-[11px] text-[var(--color-text-tertiary)]">
+              <span>Privacy Policy</span>
+              <span className="hidden sm:inline">&middot;</span>
+              <span>Terms of Service</span>
+              <span className="hidden sm:inline">&middot;</span>
+              <span>Contact</span>
+            </div>
+          </div>
         </div>
       </footer>
 
