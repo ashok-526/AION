@@ -1,8 +1,13 @@
-"""Redis client for caching, pub/sub, and circuit breaker state."""
+"""Redis client for caching, pub/sub, and circuit breaker state.
+
+All functions gracefully degrade when Redis is unavailable — the app
+works without Redis, just without caching/streams.
+"""
 
 from __future__ import annotations
 
 import json
+import logging
 import time
 from datetime import datetime
 from typing import Optional
@@ -16,16 +21,32 @@ from packages.shared.constants import (
     CIRCUIT_BREAKER_THRESHOLD,
 )
 
+logger = logging.getLogger("newspulse.redis")
+
 _redis: Optional[aioredis.Redis] = None
+_redis_available: bool = True
 
 
-async def get_redis() -> aioredis.Redis:
-    global _redis
+async def get_redis() -> Optional[aioredis.Redis]:
+    global _redis, _redis_available
+    if not _redis_available:
+        return None
     if _redis is None:
         settings = get_settings()
-        _redis = aioredis.from_url(
-            settings.redis_url, decode_responses=True, max_connections=20
-        )
+        if not settings.redis_url:
+            logger.warning("REDIS_URL not set — running without Redis")
+            _redis_available = False
+            return None
+        try:
+            _redis = aioredis.from_url(
+                settings.redis_url, decode_responses=True, max_connections=20
+            )
+            await _redis.ping()
+        except Exception as e:
+            logger.warning("Redis unavailable (%s) — running without cache", e)
+            _redis_available = False
+            _redis = None
+            return None
     return _redis
 
 
@@ -38,40 +59,57 @@ async def close_redis():
 
 # ── Cache helpers ────────────────────────────────────────────────
 async def cache_get(key: str) -> Optional[dict]:
-    r = await get_redis()
-    raw = await r.get(f"cache:{key}")
-    if raw:
-        return json.loads(raw)
+    try:
+        r = await get_redis()
+        if r is None:
+            return None
+        raw = await r.get(f"cache:{key}")
+        if raw:
+            return json.loads(raw)
+    except Exception:
+        pass
     return None
 
 
 async def cache_set(key: str, data: dict, ttl: int = CACHE_TTL_FEED):
-    r = await get_redis()
-    await r.set(f"cache:{key}", json.dumps(data, default=str), ex=ttl)
+    try:
+        r = await get_redis()
+        if r is None:
+            return
+        await r.set(f"cache:{key}", json.dumps(data, default=str), ex=ttl)
+    except Exception:
+        pass
 
 
 async def cache_get_with_stale(key: str, stale_ttl: int = 600) -> tuple[Optional[dict], bool]:
-    """Get cached data, returning stale data if fresh cache expired.
-
-    Returns (data, is_stale). Stale data kept for stale_ttl seconds beyond normal TTL.
-    """
-    r = await get_redis()
-    raw = await r.get(f"cache:{key}")
-    if raw:
-        return json.loads(raw), False
-    raw_stale = await r.get(f"stale:{key}")
-    if raw_stale:
-        return json.loads(raw_stale), True
+    """Get cached data, returning stale data if fresh cache expired."""
+    try:
+        r = await get_redis()
+        if r is None:
+            return None, False
+        raw = await r.get(f"cache:{key}")
+        if raw:
+            return json.loads(raw), False
+        raw_stale = await r.get(f"stale:{key}")
+        if raw_stale:
+            return json.loads(raw_stale), True
+    except Exception:
+        pass
     return None, False
 
 
 async def cache_set_with_stale(key: str, data: dict, ttl: int = CACHE_TTL_FEED, stale_ttl: int = 600):
-    r = await get_redis()
-    serialized = json.dumps(data, default=str)
-    pipe = r.pipeline()
-    pipe.set(f"cache:{key}", serialized, ex=ttl)
-    pipe.set(f"stale:{key}", serialized, ex=ttl + stale_ttl)
-    await pipe.execute()
+    try:
+        r = await get_redis()
+        if r is None:
+            return
+        serialized = json.dumps(data, default=str)
+        pipe = r.pipeline()
+        pipe.set(f"cache:{key}", serialized, ex=ttl)
+        pipe.set(f"stale:{key}", serialized, ex=ttl + stale_ttl)
+        await pipe.execute()
+    except Exception:
+        pass
 
 
 # ── Circuit Breaker ──────────────────────────────────────────────
@@ -83,15 +121,25 @@ class CircuitBreaker:
         self.key = f"cb:{provider_name}"
 
     async def _state(self) -> dict:
-        r = await get_redis()
-        raw = await r.get(self.key)
-        if raw:
-            return json.loads(raw)
+        try:
+            r = await get_redis()
+            if r is None:
+                return {"failures": 0, "state": "closed", "opened_at": None, "last_error": None}
+            raw = await r.get(self.key)
+            if raw:
+                return json.loads(raw)
+        except Exception:
+            pass
         return {"failures": 0, "state": "closed", "opened_at": None, "last_error": None}
 
     async def _save(self, state: dict):
-        r = await get_redis()
-        await r.set(self.key, json.dumps(state, default=str), ex=CIRCUIT_BREAKER_COOLDOWN * 10)
+        try:
+            r = await get_redis()
+            if r is None:
+                return
+            await r.set(self.key, json.dumps(state, default=str), ex=CIRCUIT_BREAKER_COOLDOWN * 10)
+        except Exception:
+            pass
 
     async def is_open(self) -> bool:
         state = await self._state()
@@ -136,57 +184,82 @@ class CircuitBreaker:
 
 # ── Streams (replaces Pub/Sub for SSE) ───────────────────────────
 async def stream_add(channel: str, data: dict, maxlen: int = 1000) -> str:
-    """Append an event to a Redis Stream. Returns the stream entry ID."""
-    r = await get_redis()
-    stream_key = f"stream:{channel}"
-    payload = json.dumps(data, default=str)
-    entry_id = await r.xadd(
-        stream_key,
-        {"payload": payload},
-        maxlen=maxlen,
-        approximate=True,
-    )
-    return entry_id
+    """Append an event to a Redis Stream."""
+    try:
+        r = await get_redis()
+        if r is None:
+            return "0-0"
+        stream_key = f"stream:{channel}"
+        payload = json.dumps(data, default=str)
+        entry_id = await r.xadd(
+            stream_key,
+            {"payload": payload},
+            maxlen=maxlen,
+            approximate=True,
+        )
+        return entry_id
+    except Exception:
+        return "0-0"
 
 
 async def stream_read(channel: str, last_id: str = "$", block_ms: int = 15000) -> list[tuple[str, str]]:
-    """Blocking read from a Redis Stream. Returns list of (entry_id, payload_json)."""
-    r = await get_redis()
-    stream_key = f"stream:{channel}"
-    result = await r.xread({stream_key: last_id}, block=block_ms, count=10)
-    entries = []
-    if result:
-        for _stream_name, messages in result:
-            for msg_id, fields in messages:
-                entries.append((msg_id, fields.get("payload", "{}")))
-    return entries
+    """Blocking read from a Redis Stream."""
+    try:
+        r = await get_redis()
+        if r is None:
+            return []
+        stream_key = f"stream:{channel}"
+        result = await r.xread({stream_key: last_id}, block=block_ms, count=10)
+        entries = []
+        if result:
+            for _stream_name, messages in result:
+                for msg_id, fields in messages:
+                    entries.append((msg_id, fields.get("payload", "{}")))
+        return entries
+    except Exception:
+        return []
 
 
 async def stream_read_since(channel: str, last_id: str) -> list[tuple[str, str]]:
-    """Non-blocking read of all entries after last_id. For replaying missed events on reconnect."""
-    r = await get_redis()
-    stream_key = f"stream:{channel}"
-    result = await r.xread({stream_key: last_id}, count=100)
-    entries = []
-    if result:
-        for _stream_name, messages in result:
-            for msg_id, fields in messages:
-                entries.append((msg_id, fields.get("payload", "{}")))
-    return entries
+    """Non-blocking read of all entries after last_id."""
+    try:
+        r = await get_redis()
+        if r is None:
+            return []
+        stream_key = f"stream:{channel}"
+        result = await r.xread({stream_key: last_id}, count=100)
+        entries = []
+        if result:
+            for _stream_name, messages in result:
+                for msg_id, fields in messages:
+                    entries.append((msg_id, fields.get("payload", "{}")))
+        return entries
+    except Exception:
+        return []
 
 
 async def publish_event(channel: str, event_type: str, data: dict):
-    """Publish an event to a Redis Stream (backward-compatible wrapper)."""
+    """Publish an event to a Redis Stream."""
     payload = {"event": event_type, "channel": channel, "data": data}
     await stream_add(channel, payload)
 
 
 # ── Single-flight refresh ────────────────────────────────────────
 async def acquire_refresh_lock(key: str, ttl: int = 30) -> bool:
-    r = await get_redis()
-    return await r.set(f"lock:{key}", "1", nx=True, ex=ttl)
+    try:
+        r = await get_redis()
+        if r is None:
+            return True  # No Redis = no lock = always proceed
+        return await r.set(f"lock:{key}", "1", nx=True, ex=ttl)
+    except Exception:
+        return True
 
 
 async def release_refresh_lock(key: str):
-    r = await get_redis()
-    await r.delete(f"lock:{key}")
+    try:
+        r = await get_redis()
+        if r is None:
+            return
+        await r.delete(f"lock:{key}")
+    except Exception:
+        pass
