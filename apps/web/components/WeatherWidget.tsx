@@ -52,7 +52,7 @@ export default function WeatherWidget() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch weather — try IP geolocation first (no permission needed), fall back to browser geolocation
+  // Fetch weather — prefer browser geolocation (actual user location), fall back to IP lookup
   useEffect(() => {
     async function fetchWeather(lat: number, lon: number) {
       try {
@@ -73,26 +73,27 @@ export default function WeatherWidget() {
       } catch { /* ignore */ }
     }
 
-    // Try IP-based location first (no permission popup)
-    fetch("https://ipapi.co/json/")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.latitude && data.longitude) {
-          fetchWeather(data.latitude, data.longitude);
-        } else {
-          throw new Error("no coords");
-        }
-      })
-      .catch(() => {
-        // Fallback: browser geolocation
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
-            () => {},
-            { timeout: 8000 }
-          );
-        }
-      });
+    const fetchByIpFallback = () => {
+      fetch("https://ipapi.co/json/")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.latitude && data.longitude) {
+            fetchWeather(data.latitude, data.longitude);
+          }
+        })
+        .catch(() => {});
+    };
+
+    if (!navigator.geolocation) {
+      fetchByIpFallback();
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+      () => fetchByIpFallback(),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
   }, []);
 
   const icon = weather ? (WEATHER_ICONS[weather.code] || "\u{1F321}\uFE0F") : null;

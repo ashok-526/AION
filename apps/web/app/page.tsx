@@ -6,7 +6,6 @@ import { getFeed, getCountries, getCategories, translateTexts } from "@/lib/api"
 import { useSSE } from "@/hooks/useSSE";
 import { useAuth, AuthProvider } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
-import { timeAgo } from "@/lib/utils";
 import Header, { LANGUAGES } from "@/components/Header";
 import CategoryChips from "@/components/CategoryChips";
 import FeedList from "@/components/FeedList";
@@ -16,6 +15,10 @@ import PreferencesModal from "@/components/PreferencesModal";
 import NotificationBell from "@/components/NotificationBell";
 import CountrySidebar from "@/components/CountrySidebar";
 import WeatherWidget from "@/components/WeatherWidget";
+import LatestWorldMarquee from "@/components/LatestWorldMarquee";
+import ICCBanner from "@/components/ICCBanner";
+import AvatarCreatorModal from "@/components/AvatarCreatorModal";
+import ChatWidget from "@/components/ChatWidget";
 
 const DEFAULT_COUNTRIES: CountryMeta[] = [
   { code: "NP", name: "Nepal" },
@@ -125,16 +128,18 @@ function HomeInner() {
   const [language, setLanguage] = useState("en");
   const [items, setItems] = useState<FeedItem[]>([]);
   const [displayItems, setDisplayItems] = useState<FeedItem[]>([]);
+  const [worldTickerItems, setWorldTickerItems] = useState<FeedItem[]>([]);
+  const [worldTickerLoading, setWorldTickerLoading] = useState(true);
   const [feedTranslating, setFeedTranslating] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const translateRef = useRef(0);
 
   // Modal states
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showPrefsModal, setShowPrefsModal] = useState(false);
+  const [showAvatarCreator, setShowAvatarCreator] = useState(false);
   const [notifInterval, setNotifInterval] = useState(15);
 
   // Notifications
@@ -142,20 +147,6 @@ function HomeInner() {
     enabled: !!user,
     intervalMinutes: notifInterval,
   });
-
-  const { connected } = useSSE({
-    country,
-    category,
-    mode,
-    onUpdate: useCallback(() => {
-      loadFeed(country, category, mode, true);
-    }, [country, category, mode]),
-  });
-
-  useEffect(() => {
-    getCountries().then(setCountries).catch(() => {});
-    getCategories().then(setCategories).catch(() => {});
-  }, []);
 
   const loadFeed = useCallback(
     async (c: string, cat: string, m: "trending" | "latest", silent = false) => {
@@ -166,11 +157,10 @@ function HomeInner() {
       try {
         const data = await getFeed(c, cat, m);
         setItems(data.items);
-        setLastUpdated(data.updated_at);
         setError(null);
       } catch {
         if (!silent) {
-          setError("Unable to connect to NewsPulse API");
+          setError("Unable to connect to AiON API");
         }
       } finally {
         if (!silent) {
@@ -180,6 +170,20 @@ function HomeInner() {
     },
     []
   );
+
+  const { connected } = useSSE({
+    country,
+    category,
+    mode,
+    onUpdate: useCallback(() => {
+      loadFeed(country, category, mode, true);
+    }, [country, category, mode, loadFeed]),
+  });
+
+  useEffect(() => {
+    getCountries().then(setCountries).catch(() => {});
+    getCategories().then(setCategories).catch(() => {});
+  }, []);
 
   useEffect(() => {
     loadFeed(country, category, mode);
@@ -192,7 +196,34 @@ function HomeInner() {
     return () => clearInterval(interval);
   }, [country, category, mode, loadFeed]);
 
-  // Translate feed items when language changes — progressive (visible first, then rest)
+  const loadWorldTicker = useCallback(async (silent = false) => {
+    if (!silent) {
+      setWorldTickerLoading(true);
+    }
+    try {
+      const data = await getFeed("", "world", "latest", 0, 20);
+      setWorldTickerItems(data.items);
+    } catch {
+      // Keep current ticker items if fetch fails
+    } finally {
+      if (!silent) {
+        setWorldTickerLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    loadWorldTicker();
+  }, [loadWorldTicker]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadWorldTicker(true);
+    }, 120_000);
+    return () => clearInterval(interval);
+  }, [loadWorldTicker]);
+
+  // Translate feed items when language changes — parallel batches, show-as-ready
   useEffect(() => {
     if (language === "en" || items.length === 0) {
       setDisplayItems(items);
@@ -203,59 +234,62 @@ function HomeInner() {
     const requestId = ++translateRef.current;
     const langName = LANGUAGES.find((l) => l.code === language)?.name || language;
 
-    // Split: first 6 items (visible above fold) vs rest
-    const VISIBLE_COUNT = 6;
+    // Only translate titles (skip summaries for speed — they're secondary)
+    const VISIBLE_COUNT = 8;
     const visibleItems = items.slice(0, VISIBLE_COUNT);
     const restItems = items.slice(VISIBLE_COUNT);
 
-    const buildTexts = (batch: FeedItem[]) => {
-      const texts: string[] = [];
-      for (const item of batch) {
-        texts.push(item.title);
-        texts.push(item.ai_summary || "");
-      }
-      return texts;
-    };
+    const buildTexts = (batch: FeedItem[]) =>
+      batch.map((item) => item.title);
 
     const applyTranslation = (batch: FeedItem[], translations: string[]) =>
       batch.map((item, i) => ({
         ...item,
-        title: translations[i * 2] || item.title,
-        ai_summary: translations[i * 2 + 1] || item.ai_summary,
+        title: translations[i] || item.title,
       }));
 
     setFeedTranslating(true);
-    // Show originals immediately while translating
     setDisplayItems(items);
 
-    // Phase 1: Translate visible items first (fast — only 6 items)
-    translateTexts(buildTexts(visibleItems), langName)
+    // Fire both batches in parallel — show each as it arrives
+    const visiblePromise = translateTexts(buildTexts(visibleItems), langName);
+    const restPromise = restItems.length > 0
+      ? translateTexts(buildTexts(restItems), langName)
+      : null;
+
+    let translatedVisible: FeedItem[] | null = null;
+    let translatedRest: FeedItem[] | null = null;
+
+    visiblePromise
       .then((resp) => {
         if (translateRef.current !== requestId) return;
-        const translatedVisible = applyTranslation(visibleItems, resp.translations);
-        // Show translated visible + original rest
-        setDisplayItems([...translatedVisible, ...restItems]);
-
-        // Phase 2: Translate remaining items in background
-        if (restItems.length > 0) {
-          translateTexts(buildTexts(restItems), langName)
-            .then((resp2) => {
-              if (translateRef.current !== requestId) return;
-              const translatedRest = applyTranslation(restItems, resp2.translations);
-              setDisplayItems([...translatedVisible, ...translatedRest]);
-            })
-            .catch(() => {})
-            .finally(() => {
-              if (translateRef.current === requestId) setFeedTranslating(false);
-            });
-        } else {
-          setFeedTranslating(false);
-        }
+        translatedVisible = applyTranslation(visibleItems, resp.translations);
+        // Show visible translations immediately + original rest (or translated rest if already done)
+        setDisplayItems([...translatedVisible, ...(translatedRest || restItems)]);
       })
       .catch(() => {
         if (translateRef.current !== requestId) return;
-        setDisplayItems(items);
-        setFeedTranslating(false);
+        translatedVisible = visibleItems;
+      });
+
+    if (restPromise) {
+      restPromise
+        .then((resp) => {
+          if (translateRef.current !== requestId) return;
+          translatedRest = applyTranslation(restItems, resp.translations);
+          // Show rest translations + visible (already translated or original)
+          setDisplayItems([...(translatedVisible || visibleItems), ...translatedRest]);
+        })
+        .catch(() => {
+          if (translateRef.current !== requestId) return;
+          translatedRest = restItems;
+        });
+    }
+
+    // When all done, clear the translating indicator
+    Promise.allSettled(restPromise ? [visiblePromise, restPromise] : [visiblePromise])
+      .then(() => {
+        if (translateRef.current === requestId) setFeedTranslating(false);
       });
   }, [language, items]);
 
@@ -263,10 +297,12 @@ function HomeInner() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
+      {/* ICC T20 World Cup Banner */}
+      <ICCBanner onSelectStory={setSelectedId} />
+
       {/* NYT-style Header with masthead */}
       <Header
         connected={connected}
-        lastUpdate={lastUpdated ? timeAgo(lastUpdated) : null}
         countries={countries}
         selectedCountry={country}
         onCountryChange={setCountry}
@@ -276,6 +312,7 @@ function HomeInner() {
         onSignInClick={() => setShowAuthModal(true)}
         onSignOutClick={logout}
         onPreferencesClick={() => setShowPrefsModal(true)}
+        onAvatarCreatorClick={() => setShowAvatarCreator(true)}
         notificationBell={
           <NotificationBell
             notifications={notifications}
@@ -288,6 +325,12 @@ function HomeInner() {
           />
         }
         onSearchSelect={setSelectedId}
+      />
+
+      <LatestWorldMarquee
+        items={worldTickerItems}
+        loading={worldTickerLoading}
+        onSelectStory={setSelectedId}
       />
 
       {/* Section navigation bar */}
@@ -357,9 +400,8 @@ function HomeInner() {
 
       {/* Footer */}
       <footer className="border-t border-[var(--color-border)]">
-        <div className="max-w-[1280px] mx-auto px-5 py-3 flex items-center justify-between text-[11px] text-[var(--color-text-tertiary)]">
-          <span>NewsPulse &middot; AI-Powered Global News</span>
-          <span>NewsAPI &middot; Guardian &middot; GDELT{lastUpdated && ` \u00B7 ${timeAgo(lastUpdated)}`}</span>
+        <div className="max-w-[1280px] mx-auto px-5 py-3 text-center text-[11px] text-[var(--color-text-tertiary)]">
+          &copy; {new Date().getFullYear()} AiON
         </div>
       </footer>
 
@@ -379,6 +421,15 @@ function HomeInner() {
         countries={countries}
         onSaved={(prefs: UserPreferences) => setNotifInterval(prefs.notification_interval)}
       />
+
+      {/* Avatar Creator Modal */}
+      <AvatarCreatorModal
+        open={showAvatarCreator}
+        onClose={() => setShowAvatarCreator(false)}
+      />
+
+      {/* Floating AI Chat Widget */}
+      <ChatWidget />
     </div>
   );
 }

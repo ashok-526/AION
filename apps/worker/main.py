@@ -1,4 +1,4 @@
-"""NewsPulse Worker — background job runner with simple loop."""
+"""AiON Worker — background job runner with simple loop."""
 
 from __future__ import annotations
 
@@ -110,7 +110,7 @@ async def health_server():
 
 
 async def main():
-    logger.info("Starting NewsPulse Worker...")
+    logger.info("Starting AiON Worker...")
     settings = get_settings()
 
     # Initialize database

@@ -26,9 +26,12 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     # JWT Auth
-    jwt_secret: str = "newspulse-hackathon-secret-change-me"
+    jwt_secret: str = "aion-hackathon-secret-change-me"
     jwt_algorithm: str = "HS256"
     jwt_expire_hours: int = 72
+
+    # HeyGen
+    heygen_api_key: str = ""
 
     # Visa Developer API (mTLS)
     visa_user_id: str = ""

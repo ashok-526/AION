@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { FXRatesResponse, SpendInsightsResponse, PaymentVolumeResponse } from "@/types";
-import { getVisaFXRates, getVisaSpendInsights, getVisaPaymentVolume, getVisaStatus } from "@/lib/api";
+import type { FXRatesResponse, SpendInsightsResponse, PaymentVolumeResponse, FeedItem } from "@/types";
+import { getVisaFXRates, getVisaSpendInsights, getVisaPaymentVolume, getVisaStatus, getFeed } from "@/lib/api";
+import { timeAgo, truncate } from "@/lib/utils";
 
 // ── TradingView Ticker Tape ─────────────────────────────────────
 function TickerTape() {
@@ -97,10 +98,12 @@ function MarketOverview() {
         {
           title: "Commodities",
           symbols: [
-            { s: "COMEX:GC1!", d: "Gold" },
-            { s: "NYMEX:CL1!", d: "Crude Oil" },
-            { s: "COMEX:SI1!", d: "Silver" },
-            { s: "NYMEX:NG1!", d: "Natural Gas" },
+            { s: "TVC:GOLD", d: "Gold" },
+            { s: "TVC:SILVER", d: "Silver" },
+            { s: "TVC:USOIL", d: "WTI Crude Oil" },
+            { s: "TVC:UKOIL", d: "Brent Crude" },
+            { s: "TVC:PLATINUM", d: "Platinum" },
+            { s: "TVC:COPPER", d: "Copper" },
           ],
         },
         {
@@ -281,6 +284,25 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "volume", label: "Volume" },
 ];
 
+// Category visual config for trending section
+const TRENDING_CATEGORY_STYLES: Record<string, { gradient: string; icon: string }> = {
+  technology: { gradient: "from-blue-900 to-blue-700", icon: "M4 3h8v10H4zM6 1v2M10 1v2" },
+  politics:   { gradient: "from-emerald-900 to-emerald-700", icon: "M8 1v14M4 5h8M3 9h10" },
+  sports:     { gradient: "from-purple-900 to-purple-700", icon: "M8 2L3 7h3v5h4V7h3L8 2z" },
+  world:      { gradient: "from-slate-800 to-slate-600", icon: "M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM1.5 8h13" },
+  science:    { gradient: "from-indigo-900 to-indigo-700", icon: "M8 2a3 3 0 100 6 3 3 0 000-6zM5 12a5 5 0 0110 0" },
+  health:     { gradient: "from-teal-900 to-teal-700", icon: "M8 3v10M3 8h10" },
+  entertainment: { gradient: "from-pink-900 to-pink-700", icon: "M8 2a6 6 0 100 12A6 6 0 008 2zM8 5v3l2 2" },
+  ai:         { gradient: "from-amber-900 to-amber-700", icon: "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5" },
+};
+
+function formatCategoryLabel(category: string): string {
+  return category
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 // ── Main Component ──────────────────────────────────────────────
 export default function MarketDashboard() {
   const [tab, setTab] = useState<Tab>("overview");
@@ -293,6 +315,10 @@ export default function MarketDashboard() {
 
   const [loading, setLoading] = useState<Tab | null>(null);
   const [error, setError] = useState<{ tab: Tab; message: string } | null>(null);
+  const [marketNews, setMarketNews] = useState<FeedItem[]>([]);
+  const [marketNewsLoading, setMarketNewsLoading] = useState(true);
+  const [categoryNews, setCategoryNews] = useState<Record<string, FeedItem[]>>({});
+  const [categoryNewsLoading, setCategoryNewsLoading] = useState(true);
 
   // Check Visa status once
   useEffect(() => {
@@ -318,6 +344,75 @@ export default function MarketDashboard() {
     }
   }, [fxData, spendData, volumeData]);
 
+  const loadMarketNews = useCallback(async (silent = false) => {
+    if (!silent) setMarketNewsLoading(true);
+    try {
+      const [business, economy, finance] = await Promise.all([
+        getFeed("", "business", "latest", 0, 8),
+        getFeed("", "economy", "latest", 0, 8),
+        getFeed("", "finance", "latest", 0, 8),
+      ]);
+
+      const seen = new Set<string>();
+      const merged = [...business.items, ...economy.items, ...finance.items]
+        .filter((item) => {
+          const key = `${item.url}|${item.title}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .sort((a, b) => {
+          const ta = a.published_at ? new Date(a.published_at).getTime() : 0;
+          const tb = b.published_at ? new Date(b.published_at).getTime() : 0;
+          return tb - ta;
+        })
+        .slice(0, 14);
+
+      setMarketNews(merged);
+    } catch {
+      // Keep previous news set if refresh fails
+    } finally {
+      if (!silent) setMarketNewsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMarketNews();
+  }, [loadMarketNews]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadMarketNews(true);
+    }, 120000);
+    return () => clearInterval(interval);
+  }, [loadMarketNews]);
+
+  // Fetch trending stories for multiple categories
+  const loadCategoryNews = useCallback(async () => {
+    setCategoryNewsLoading(true);
+    const cats = ["technology", "politics", "sports", "world", "science", "health", "entertainment", "ai"];
+    try {
+      const results = await Promise.allSettled(
+        cats.map((cat) => getFeed("", cat, "trending", 0, 3))
+      );
+      const newData: Record<string, FeedItem[]> = {};
+      results.forEach((r, i) => {
+        if (r.status === "fulfilled" && r.value.items.length > 0) {
+          newData[cats[i]] = r.value.items;
+        }
+      });
+      setCategoryNews(newData);
+    } catch {
+      // keep existing
+    } finally {
+      setCategoryNewsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCategoryNews();
+  }, [loadCategoryNews]);
+
   const handleTabClick = (t: Tab) => {
     setTab(t);
     loadTab(t);
@@ -334,6 +429,8 @@ export default function MarketDashboard() {
     // Need to trigger loadTab after state clears
     setTimeout(() => loadTab(tab), 0);
   };
+
+  const categoryEntries = Object.entries(categoryNews);
 
   return (
     <div className="h-full flex flex-col">
@@ -397,6 +494,233 @@ export default function MarketDashboard() {
           error?.tab === "volume" ? <TabError message={error.message} onRetry={handleRetry} /> :
           volumeData ? <PaymentVolumeTab data={volumeData} /> : <TabLoading />
         )}
+
+        {/* Fill lower area with market headlines */}
+        <div className="border-t border-[var(--color-border)] px-5 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+              Latest Market News
+            </h4>
+            <span className="text-[10px] text-[var(--color-text-tertiary)]">
+              Business · Economy · Finance
+            </span>
+          </div>
+
+          {marketNewsLoading && marketNews.length === 0 && (
+            <div className="text-[12px] text-[var(--color-text-tertiary)] py-3">
+              Loading headlines...
+            </div>
+          )}
+
+          {!marketNewsLoading && marketNews.length === 0 && (
+            <div className="text-[12px] text-[var(--color-text-tertiary)] py-3">
+              Headlines are updating. Check back in a moment.
+            </div>
+          )}
+
+          {marketNews.length > 0 && (
+            <div className="space-y-3">
+              <a
+                href={marketNews[0].url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block border border-[var(--color-border)] bg-white overflow-hidden"
+              >
+                <div className="relative aspect-[16/9] bg-[var(--color-bg-secondary)] overflow-hidden">
+                  {marketNews[0].image_url ? (
+                    <img
+                      src={marketNews[0].image_url}
+                      alt={marketNews[0].title}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#f5f5f5] to-[#e7e7e7]" />
+                  )}
+                  <div className="absolute left-2 top-2 px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-white/90 text-[var(--color-text-primary)]">
+                    {formatCategoryLabel(marketNews[0].category)}
+                  </div>
+                </div>
+                <div className="p-3">
+                  <div className="headline-sm text-[17px] leading-snug text-[var(--color-text-primary)] group-hover:underline underline-offset-2">
+                    {truncate(marketNews[0].title, 140)}
+                  </div>
+                  <div className="mt-2 text-[10px] uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                    {marketNews[0].source} · {timeAgo(marketNews[0].published_at)}
+                  </div>
+                </div>
+              </a>
+
+              <div className="space-y-2">
+                {marketNews.slice(1, 10).map((item) => (
+                  <a
+                    key={item.id}
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex gap-3 p-2.5 border border-[var(--color-border)] bg-white"
+                  >
+                    <div className="w-[96px] h-[68px] shrink-0 bg-[var(--color-bg-secondary)] overflow-hidden">
+                      {item.image_url ? (
+                        <img
+                          src={item.image_url}
+                          alt={item.title}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-[#f5f5f5] to-[#e8e8e8]" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-tertiary)] mb-1">
+                        {formatCategoryLabel(item.category)}
+                      </div>
+                      <div className="text-[13px] leading-snug text-[var(--color-text-primary)] group-hover:underline underline-offset-2">
+                        {truncate(item.title, 100)}
+                      </div>
+                      <div className="mt-1.5 text-[10px] uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                        {item.source} · {timeAgo(item.published_at)}
+                      </div>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Trending Across Categories */}
+        <div className="border-t border-[var(--color-border)] px-5 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+              Trending Across Categories
+            </h4>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-[var(--color-text-tertiary)]">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
+                <path d="M2 12l4-4 3 3 5-7" />
+              </svg>
+              Top Stories
+            </span>
+          </div>
+
+          {categoryNewsLoading && categoryEntries.length === 0 ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="h-[140px] bg-[var(--color-bg-tertiary)]" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {categoryEntries.map(([cat, items]) => {
+                const style = TRENDING_CATEGORY_STYLES[cat] || { gradient: "from-gray-800 to-gray-600", icon: "" };
+                const lead = items[0];
+                const rest = items.slice(1);
+
+                return (
+                  <div key={cat} className="border border-[var(--color-border)] overflow-hidden bg-white">
+                    {/* Category hero card */}
+                    <a
+                      href={lead.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group block relative"
+                    >
+                      {lead.image_url ? (
+                        <div className="relative h-[140px] overflow-hidden">
+                          <img
+                            src={lead.image_url}
+                            alt={lead.title}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                          <div className="absolute bottom-0 left-0 right-0 p-3">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-white/80 px-1.5 py-0.5 bg-white/15 backdrop-blur-sm">
+                                {formatCategoryLabel(cat)}
+                              </span>
+                              {lead.cluster_size > 1 && (
+                                <span className="text-[10px] text-white/60">
+                                  {lead.cluster_size} sources
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="text-[14px] leading-snug font-semibold text-white group-hover:underline underline-offset-2">
+                              {truncate(lead.title, 120)}
+                            </h3>
+                            <div className="mt-1 text-[10px] text-white/50">
+                              {lead.source} &middot; {timeAgo(lead.published_at)}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`relative h-[120px] bg-gradient-to-br ${style.gradient}`}>
+                          {/* Pattern overlay */}
+                          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23fff' fill-opacity='0.5'%3E%3Cpath d='M0 38.59l2.83-2.83 1.41 1.41L1.41 40H0v-1.41zM0 20l20-20h2.83L0 22.83V20zm0-4L24-4h2.83L0 22.83V16z'/%3E%3C/g%3E%3C/svg%3E\")" }} />
+                          <div className="absolute bottom-0 left-0 right-0 p-3">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-white/80 px-1.5 py-0.5 bg-white/15">
+                                {formatCategoryLabel(cat)}
+                              </span>
+                            </div>
+                            <h3 className="text-[14px] leading-snug font-semibold text-white group-hover:underline underline-offset-2">
+                              {truncate(lead.title, 120)}
+                            </h3>
+                            <div className="mt-1 text-[10px] text-white/50">
+                              {lead.source} &middot; {timeAgo(lead.published_at)}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </a>
+
+                    {/* Related stories underneath */}
+                    {rest.length > 0 && (
+                      <div className="divide-y divide-[var(--color-border)]">
+                        {rest.map((item) => (
+                          <a
+                            key={item.id}
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group flex gap-2.5 px-3 py-2.5 hover:bg-[var(--color-bg-secondary)] transition-colors"
+                          >
+                            {item.image_url && (
+                              <div className="w-[60px] h-[44px] shrink-0 overflow-hidden bg-[var(--color-bg-tertiary)]">
+                                <img
+                                  src={item.image_url}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[12px] leading-snug text-[var(--color-text-primary)] group-hover:underline underline-offset-2 line-clamp-2">
+                                {truncate(item.title, 90)}
+                              </div>
+                              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">
+                                {item.source} &middot; {timeAgo(item.published_at)}
+                              </div>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

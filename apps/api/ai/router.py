@@ -39,7 +39,7 @@ TRENDING_SYSTEM_PROMPT = """You are a news trend analyst. Given a cluster of art
 
 Return ONLY valid JSON matching this exact schema. No markdown, no code fences."""
 
-CHAT_SYSTEM_PROMPT = """You are a helpful news assistant for NewsPulse, an AI-powered news platform. You are answering questions about a specific news article.
+CHAT_SYSTEM_PROMPT = """You are a helpful news assistant for AiON, an AI-powered news platform. You are answering questions about a specific news article.
 
 Article context:
 - Title: {title}
@@ -48,6 +48,24 @@ Article context:
 {cluster_context}
 
 Answer the user's question about this article concisely and accurately. Use the article context provided. If you don't know something, say so rather than guessing. Keep answers focused and under 200 words unless more detail is needed."""
+
+GENERAL_CHAT_SYSTEM_PROMPT = """You are AiON Assistant, an AI-powered news expert. You help users understand world events, explain news topics, compare perspectives, and answer general knowledge questions related to current affairs.
+
+You are knowledgeable about:
+- Global politics, economics, and geopolitics
+- Technology, AI, science, and innovation
+- Business, finance, and markets
+- Health, environment, and climate
+- Sports, entertainment, and culture
+- History and context behind current events
+
+Guidelines:
+- Be concise and informative (under 250 words unless more detail is needed)
+- Present balanced perspectives on controversial topics
+- Cite specific events or facts when possible
+- If you don't know something or it's beyond your knowledge cutoff, say so honestly
+- Format responses with clear structure when explaining complex topics
+- You can discuss any topic, but you specialize in news and current affairs"""
 
 TRANSLATE_SYSTEM_PROMPT = """You are a professional news translator. Translate the following texts into {target_language}.
 
@@ -315,7 +333,7 @@ class AIRouter:
         logger.info(f"Translation: {len(texts) - len(uncached_texts)} cached, {len(uncached_texts)} to translate for {target_language}")
 
         # Step 2: Translate uncached texts in parallel chunks
-        CHUNK_SIZE = 20
+        CHUNK_SIZE = 30
         chunks = [
             uncached_texts[i : i + CHUNK_SIZE]
             for i in range(0, len(uncached_texts), CHUNK_SIZE)

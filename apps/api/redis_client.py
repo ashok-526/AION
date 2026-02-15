@@ -21,7 +21,7 @@ from packages.shared.constants import (
     CIRCUIT_BREAKER_THRESHOLD,
 )
 
-logger = logging.getLogger("newspulse.redis")
+logger = logging.getLogger("aion.redis")
 
 _redis: Optional[aioredis.Redis] = None
 _redis_available: bool = True

@@ -1,5 +1,5 @@
 [project]
-name = "newspulse"
+name = "aion"
 version = "1.0.0"
 description = "AI-powered global news discovery platform"
 requires-python = ">=3.11"

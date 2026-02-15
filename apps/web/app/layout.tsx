@@ -20,7 +20,7 @@ const libreBaskerville = Libre_Baskerville({
 });
 
 export const metadata: Metadata = {
-  title: "NewsPulse",
+  title: "AiON",
   description:
     "Real-time trending news with AI intelligence, multi-source coverage, and deep story analysis.",
 };

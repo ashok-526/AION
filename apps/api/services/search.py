@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apps.api.database import Article, Cluster
 from apps.api.redis_client import cache_get, cache_set
 
-logger = logging.getLogger("newspulse.search")
+logger = logging.getLogger("aion.search")
 
 # ── Cache TTLs ───────────────────────────────────────────────────
 SUGGEST_CACHE_TTL = 120   # 2 minutes

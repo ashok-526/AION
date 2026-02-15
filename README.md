@@ -1,4 +1,4 @@
-# NewsPulse — AI-Powered Global News Discovery Platform
+# AiON — AI-Powered Global News Discovery Platform
 
 A real-time, multi-source news intelligence platform with AI-powered summaries, trending detection, story clustering, and deep analysis.
 
@@ -180,7 +180,7 @@ TRENDING_W_VELOCITY = 1.5 # Weight for velocity (articles/30min)
 ## Project Structure
 
 ```
-newspulse/
+aion/
 ├── apps/
 │   ├── api/                    # FastAPI backend
 │   │   ├── main.py             # App entry point + lifespan

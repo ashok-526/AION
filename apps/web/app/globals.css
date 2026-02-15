@@ -301,3 +301,95 @@ body {
   position: relative;
   z-index: 1;
 }
+
+/* -- World Marquee ------------------------------------------ */
+@keyframes world-marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.world-marquee-mask {
+  overflow: hidden;
+  width: 100%;
+  min-width: 0;
+}
+
+.world-marquee-track {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 20px;
+  width: max-content;
+  white-space: nowrap;
+  animation-name: world-marquee-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.world-marquee-mask:hover .world-marquee-track {
+  animation-play-state: paused;
+}
+
+.world-marquee-item {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-width: max-content;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  transition: color 120ms ease;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.world-marquee-item:hover {
+  color: var(--color-text-primary);
+}
+
+.world-marquee-title {
+  font-size: 13px;
+  font-family: var(--font-body);
+  line-height: 1.3;
+}
+
+.world-marquee-meta {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-tertiary);
+}
+
+/* -- Floating Chat Widget ----------------------------------- */
+@keyframes chat-widget-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.chat-widget-panel {
+  animation: chat-widget-in 200ms ease-out;
+}
+
+/* -- Breaking News Pulse ------------------------------------ */
+@keyframes breaking-pulse {
+  0%, 100% { background-color: #dc2626; }
+  50% { background-color: #991b1b; }
+}
+.breaking-badge {
+  animation: breaking-pulse 1.5s ease-in-out infinite;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+}

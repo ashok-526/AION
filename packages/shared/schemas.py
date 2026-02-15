@@ -1,4 +1,4 @@
-"""Shared Pydantic schemas for NewsPulse."""
+"""Shared Pydantic schemas for AiON."""
 
 from __future__ import annotations
 
@@ -155,6 +155,11 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     article_id: int
+    question: str
+    history: list[ChatMessage] = Field(default_factory=list)
+
+
+class GeneralChatRequest(BaseModel):
     question: str
     history: list[ChatMessage] = Field(default_factory=list)
 

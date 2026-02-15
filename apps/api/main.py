@@ -1,4 +1,4 @@
-"""NewsPulse API — FastAPI application entry point."""
+"""AiON API — FastAPI application entry point."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from apps.api.config import get_settings
 from apps.api.database import init_db, close_db
 from apps.api.middleware.caching import ETagMiddleware
 from apps.api.redis_client import close_redis
-from apps.api.routes import auth, chat, feed, health, meta, notifications, preferences, search, story, stream, translate, visa
+from apps.api.routes import auth, chat, feed, health, heygen, meta, notifications, preferences, search, story, stream, translate, visa
 
 # ── Logging ──────────────────────────────────────────────────────
 logging.basicConfig(
@@ -21,24 +21,24 @@ logging.basicConfig(
     format='{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","msg":"%(message)s"}',
     handlers=[logging.StreamHandler(sys.stdout)],
 )
-logger = logging.getLogger("newspulse")
+logger = logging.getLogger("aion")
 
 
 # ── Lifespan ─────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting NewsPulse API...")
+    logger.info("Starting AiON API...")
     await init_db()
     logger.info("Database initialized")
     yield
     await close_db()
     await close_redis()
-    logger.info("NewsPulse API shut down")
+    logger.info("AiON API shut down")
 
 
 # ── App ──────────────────────────────────────────────────────────
 app = FastAPI(
-    title="NewsPulse API",
+    title="AiON API",
     description="AI-powered global news discovery platform",
     version="1.0.0",
     lifespan=lifespan,
@@ -68,12 +68,13 @@ app.include_router(preferences.router)
 app.include_router(notifications.router)
 app.include_router(search.router)
 app.include_router(visa.router)
+app.include_router(heygen.router)
 
 
 @app.get("/")
 async def root():
     return {
-        "name": "NewsPulse API",
+        "name": "AiON API",
         "version": "1.0.0",
         "docs": "/docs",
     }

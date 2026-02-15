@@ -6,7 +6,7 @@ import json
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy import select, func, and_, desc
+from sqlalchemy import select, func, and_, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.database import Article, Cluster, ClusterMember
@@ -15,6 +15,15 @@ from packages.shared.constants import CACHE_TTL_FEED
 from packages.shared.schemas import FeedItem, FeedResponse
 
 logger = logging.getLogger(__name__)
+
+ENGLISH_LANGUAGE_VALUES = ("en", "english", "eng")
+
+
+def _is_english_language_clause():
+    return or_(
+        Article.language.is_(None),
+        func.lower(Article.language).in_(ENGLISH_LANGUAGE_VALUES),
+    )
 
 
 async def get_feed(
@@ -30,7 +39,7 @@ async def get_feed(
     If country is empty, returns global results across all countries.
     """
 
-    cache_key = f"feed:{country or 'GLOBAL'}:{category}:{mode}"
+    cache_key = f"feed:{country or 'GLOBAL'}:{category}:{mode}:lang-en"
 
     # Check cache first
     cached, is_stale = await cache_get_with_stale(cache_key)
@@ -83,7 +92,12 @@ async def _trending_feed(
         # Get the "best" article for this cluster (most recent with image)
         art_q = (
             select(Article)
-            .where(Article.cluster_id == cluster.cluster_id)
+            .where(
+                and_(
+                    Article.cluster_id == cluster.cluster_id,
+                    _is_english_language_clause(),
+                )
+            )
             .order_by(desc(Article.published_at))
             .limit(1)
         )
@@ -124,7 +138,7 @@ async def _latest_feed(
     db: AsyncSession, country: str, category: str, offset: int, limit: int
 ) -> list[FeedItem]:
     """Get latest articles by publish time."""
-    conditions = [Article.category == category]
+    conditions = [Article.category == category, _is_english_language_clause()]
     if country:
         conditions.append(Article.country == country.upper())
     query = (

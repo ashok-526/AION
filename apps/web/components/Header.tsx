@@ -35,31 +35,74 @@ const REGIONS: Region[] = [
 ];
 
 export const LANGUAGES = [
+  // Global
   { code: "en", name: "English" },
+  // South Asia
   { code: "ne", name: "Nepali" },
   { code: "hi", name: "Hindi" },
+  { code: "bn", name: "Bengali" },
+  { code: "ta", name: "Tamil" },
+  { code: "te", name: "Telugu" },
+  { code: "mr", name: "Marathi" },
+  { code: "gu", name: "Gujarati" },
+  { code: "kn", name: "Kannada" },
+  { code: "ml", name: "Malayalam" },
+  { code: "pa", name: "Punjabi" },
+  { code: "si", name: "Sinhala" },
+  { code: "ur", name: "Urdu" },
+  // East & Southeast Asia
   { code: "zh", name: "Chinese" },
   { code: "ja", name: "Japanese" },
   { code: "ko", name: "Korean" },
+  { code: "th", name: "Thai" },
+  { code: "vi", name: "Vietnamese" },
+  { code: "id", name: "Indonesian" },
+  { code: "ms", name: "Malay" },
+  { code: "tl", name: "Filipino" },
+  { code: "my", name: "Burmese" },
+  { code: "km", name: "Khmer" },
+  // Europe
   { code: "es", name: "Spanish" },
   { code: "fr", name: "French" },
   { code: "de", name: "German" },
   { code: "pt", name: "Portuguese" },
-  { code: "ar", name: "Arabic" },
-  { code: "ru", name: "Russian" },
   { code: "it", name: "Italian" },
-  { code: "th", name: "Thai" },
-  { code: "vi", name: "Vietnamese" },
-  { code: "id", name: "Indonesian" },
-  { code: "tr", name: "Turkish" },
   { code: "nl", name: "Dutch" },
   { code: "pl", name: "Polish" },
   { code: "sv", name: "Swedish" },
+  { code: "no", name: "Norwegian" },
+  { code: "da", name: "Danish" },
+  { code: "fi", name: "Finnish" },
+  { code: "el", name: "Greek" },
+  { code: "cs", name: "Czech" },
+  { code: "ro", name: "Romanian" },
+  { code: "hu", name: "Hungarian" },
+  { code: "uk", name: "Ukrainian" },
+  { code: "bg", name: "Bulgarian" },
+  { code: "hr", name: "Croatian" },
+  { code: "sk", name: "Slovak" },
+  { code: "sr", name: "Serbian" },
+  { code: "lt", name: "Lithuanian" },
+  { code: "lv", name: "Latvian" },
+  { code: "et", name: "Estonian" },
+  { code: "ca", name: "Catalan" },
+  // Middle East & Africa
+  { code: "ar", name: "Arabic" },
+  { code: "he", name: "Hebrew" },
+  { code: "fa", name: "Persian" },
+  { code: "tr", name: "Turkish" },
+  { code: "sw", name: "Swahili" },
+  { code: "am", name: "Amharic" },
+  // Russia & Central Asia
+  { code: "ru", name: "Russian" },
+  { code: "kk", name: "Kazakh" },
+  { code: "uz", name: "Uzbek" },
+  // Americas
+  { code: "ht", name: "Haitian Creole" },
 ];
 
 interface HeaderProps {
   connected: boolean;
-  lastUpdate: string | null;
   countries: CountryMeta[];
   selectedCountry: string;
   onCountryChange: (code: string) => void;
@@ -69,13 +112,13 @@ interface HeaderProps {
   onSignInClick: () => void;
   onSignOutClick: () => void;
   onPreferencesClick: () => void;
+  onAvatarCreatorClick: () => void;
   notificationBell: ReactNode;
   onSearchSelect: (articleId: number) => void;
 }
 
 export default function Header({
   connected,
-  lastUpdate,
   countries,
   selectedCountry,
   onCountryChange,
@@ -85,6 +128,7 @@ export default function Header({
   onSignInClick,
   onSignOutClick,
   onPreferencesClick,
+  onAvatarCreatorClick,
   notificationBell,
   onSearchSelect,
 }: HeaderProps) {
@@ -194,11 +238,6 @@ export default function Header({
               <span className="text-[var(--color-text-tertiary)] font-medium">
                 {connected ? "LIVE" : "..."}
               </span>
-              {lastUpdate && (
-                <span className="text-[var(--color-text-tertiary)] ml-1">
-                  {lastUpdate}
-                </span>
-              )}
             </div>
 
             {/* Divider */}
@@ -243,6 +282,12 @@ export default function Header({
                       className="w-full text-left px-3 py-2 text-[12px] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors border-b border-[var(--color-border)]"
                     >
                       Preferences
+                    </button>
+                    <button
+                      onClick={() => { onAvatarCreatorClick(); setUserMenuOpen(false); }}
+                      className="w-full text-left px-3 py-2 text-[12px] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] transition-colors border-b border-[var(--color-border)]"
+                    >
+                      Avatar Creator
                     </button>
                     <button
                       onClick={() => { onSignOutClick(); setUserMenuOpen(false); }}

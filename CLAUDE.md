@@ -80,7 +80,7 @@ Logout → removes token → clears user state
 ```
 
 ### 2. Branding: Aion Logo (NEW)
-- Replaced "NewsPulse" masthead text with `aion.png` logo image
+- Replaced "AiON" masthead text with `aion.png` logo image
 - Logo at `apps/web/public/aion.png` (cropped tight, no excess whitespace)
 - Size: `h-[80px] md:h-[100px]` in Header masthead
 
@@ -162,7 +162,7 @@ Open http://localhost:3000
 - DB: PostgreSQL on port **5433** (not 5432, to avoid conflict with local postgres)
 - Python: 3.13 venv at `.venv/`
 - All API keys in `.env` (NEWSAPI_KEY, OPENAI_KEY, ANTHROPIC_KEY, PERPLEXITY_KEY)
-- JWT secret in config.py (default: `newspulse-hackathon-secret-change-me`)
+- JWT secret in config.py (default: `aion-hackathon-secret-change-me`)
 - Guardian key is placeholder — circuit breaker handles it gracefully
 - Frontend at apps/web/ with node_modules already installed
 - Logo: `apps/web/public/aion.png`

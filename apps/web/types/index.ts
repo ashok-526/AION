@@ -194,6 +194,14 @@ export interface SearchResponse {
   total: number;
 }
 
+// ── HeyGen ──────────────────────────────────────────────────
+export interface HeyGenAvatar {
+  avatar_id: string;
+  avatar_name: string;
+  preview_image_url: string;
+  gender: string;
+}
+
 // ── Visa API ────────────────────────────────────────────────
 export interface FXRate {
   currency: string;

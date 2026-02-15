@@ -9,6 +9,7 @@ import type {
   ExplainResponse,
   FeedResponse,
   FXRatesResponse,
+  HeyGenAvatar,
   NotificationsResponse,
   PaymentVolumeResponse,
   SearchResponse,
@@ -96,6 +97,21 @@ export async function sendChatMessage(
       question,
       history,
     }),
+  });
+  if (!res.ok) {
+    throw new Error(`API error: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function sendGeneralChat(
+  question: string,
+  history: ChatMessage[]
+): Promise<ChatResponse> {
+  const res = await fetch(`${API_URL}/api/general-chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, history }),
   });
   if (!res.ok) {
     throw new Error(`API error: ${res.status} ${res.statusText}`);
@@ -237,4 +253,27 @@ export async function getVisaPaymentVolume(): Promise<PaymentVolumeResponse> {
 
 export async function getVisaStatus(): Promise<{ configured: boolean }> {
   return fetchJSON("/api/visa/status");
+}
+
+// ── HeyGen API ───────────────────────────────────────────────
+export async function getHeyGenAvatars(): Promise<{ avatars: HeyGenAvatar[]; demo: boolean }> {
+  return fetchJSONAuth("/api/heygen/avatars");
+}
+
+export async function uploadHeyGenAvatar(file: File): Promise<{ avatar_id: string; preview_image_url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const token = typeof window !== "undefined" ? localStorage.getItem("np_token") : null;
+  const res = await fetch(`${API_URL}/api/heygen/avatars/upload`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Upload failed: ${res.status}`);
+  }
+  return res.json();
 }

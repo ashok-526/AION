@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.ai.router import get_ai_router, CHAT_SYSTEM_PROMPT
+from apps.api.ai.router import get_ai_router, CHAT_SYSTEM_PROMPT, GENERAL_CHAT_SYSTEM_PROMPT
 from apps.api.database import get_db, Article, Cluster
-from packages.shared.schemas import ChatRequest, ChatResponse
+from packages.shared.schemas import ChatRequest, ChatResponse, GeneralChatRequest
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
@@ -74,3 +74,13 @@ async def chat(
 
     ai = get_ai_router()
     return await ai.chat_answer(system_prompt, messages)
+
+
+@router.post("/general-chat")
+async def general_chat(req: GeneralChatRequest) -> ChatResponse:
+    """Answer a general question about news and world events using AI."""
+    messages = [{"role": m.role, "content": m.content} for m in req.history[-8:]]
+    messages.append({"role": "user", "content": req.question})
+
+    ai = get_ai_router()
+    return await ai.chat_answer(GENERAL_CHAT_SYSTEM_PROMPT, messages)

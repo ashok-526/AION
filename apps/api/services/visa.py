@@ -11,7 +11,7 @@ from typing import Any
 from apps.api.config import get_settings
 from apps.api.redis_client import cache_get, cache_set
 
-logger = logging.getLogger("newspulse.visa")
+logger = logging.getLogger("aion.visa")
 
 # ── Demo data ────────────────────────────────────────────────────
 

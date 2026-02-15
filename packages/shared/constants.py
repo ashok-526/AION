@@ -1,4 +1,4 @@
-"""Shared constants for NewsPulse."""
+"""Shared constants for AiON."""
 
 # ── Countries (40+, including Nepal) ─────────────────────────────
 COUNTRIES = {
