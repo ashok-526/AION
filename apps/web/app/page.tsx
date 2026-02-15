@@ -148,6 +148,9 @@ function HomeInner() {
     intervalMinutes: notifInterval,
   });
 
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const loadFeed = useCallback(
     async (c: string, cat: string, m: "trending" | "latest", silent = false) => {
       if (!silent) {
@@ -155,8 +158,9 @@ function HomeInner() {
         setError(null);
       }
       try {
-        const data = await getFeed(c, cat, m);
+        const data = await getFeed(c, cat, m, 0, 50);
         setItems(data.items);
+        setHasMore(data.cursor !== null);
         setError(null);
       } catch {
         if (!silent) {
@@ -170,6 +174,20 @@ function HomeInner() {
     },
     []
   );
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const data = await getFeed(country, category, mode, items.length, 30);
+      setItems((prev) => [...prev, ...data.items]);
+      setHasMore(data.cursor !== null);
+    } catch {
+      // silently fail
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [country, category, mode, items.length, loadingMore, hasMore]);
 
   const { connected } = useSSE({
     country,
@@ -374,6 +392,9 @@ function HomeInner() {
               selectedId={selectedId}
               onSelect={setSelectedId}
               loading={loading && items.length === 0}
+              hasMore={hasMore}
+              loadingMore={loadingMore}
+              onLoadMore={loadMore}
             />
           </div>
         </div>

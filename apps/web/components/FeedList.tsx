@@ -9,6 +9,9 @@ interface Props {
   selectedId: number | null;
   onSelect: (id: number) => void;
   loading: boolean;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 export default function FeedList({
@@ -16,6 +19,9 @@ export default function FeedList({
   selectedId,
   onSelect,
   loading,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: Props) {
   if (loading) {
     return (
@@ -119,9 +125,31 @@ export default function FeedList({
         </>
       )}
 
+      {/* Load More */}
+      {hasMore && onLoadMore && (
+        <div className="mt-6 text-center">
+          <button
+            onClick={onLoadMore}
+            disabled={loadingMore}
+            className="px-8 py-2.5 border border-[var(--color-border)] text-[13px] font-medium tracking-wider uppercase hover:bg-[var(--color-bg-secondary)] transition-colors disabled:opacity-50"
+          >
+            {loadingMore ? (
+              <span className="flex items-center gap-2 justify-center">
+                <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="30 12" />
+                </svg>
+                Loading...
+              </span>
+            ) : (
+              "Load More Stories"
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="mt-4 pt-4 border-t border-[var(--color-border)] text-[12px] text-center text-[var(--color-text-tertiary)]">
-        {items.length} stories
+        {items.length} stories{hasMore ? " — more available" : ""}
       </div>
     </div>
   );

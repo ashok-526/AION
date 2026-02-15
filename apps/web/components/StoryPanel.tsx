@@ -64,16 +64,19 @@ export default function StoryPanel({ articleId, onClose, language }: Props) {
       .finally(() => setLoading(false));
   }, [articleId]);
 
-  // Auto-trigger Deep Explain when story loads
+  // Auto-trigger Deep Explain when story loads (works for both clustered and unclustered articles)
   useEffect(() => {
-    if (story?.cluster?.cluster_id && !explain && !explainLoading) {
+    if (story && !explain && !explainLoading) {
       setExplainLoading(true);
-      getExplanation(story.cluster.cluster_id)
+      const explainPromise = story.cluster?.cluster_id
+        ? getExplanation(story.cluster.cluster_id)
+        : getExplanation(undefined, story.article.id);
+      explainPromise
         .then(setExplain)
         .catch(() => {})
         .finally(() => setExplainLoading(false));
     }
-  }, [story?.cluster?.cluster_id]);
+  }, [story?.article?.id]);
 
   // Translate ALL content when language changes
   useEffect(() => {
@@ -580,13 +583,7 @@ export default function StoryPanel({ articleId, onClose, language }: Props) {
                   </div>
                 )}
 
-                {!explainLoading && !explain && !story.cluster?.cluster_id && (
-                  <p className="text-[13px] text-[var(--color-text-tertiary)] italic">
-                    Deep analysis is not available for unclustered articles.
-                  </p>
-                )}
-
-                {!explainLoading && !explain && story.cluster?.cluster_id && (
+                {!explainLoading && !explain && (
                   <p className="text-[13px] text-[var(--color-text-tertiary)] italic">
                     Could not load analysis. Try refreshing.
                   </p>

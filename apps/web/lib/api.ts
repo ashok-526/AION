@@ -79,9 +79,13 @@ export async function getCluster(clusterId: number): Promise<ClusterRead> {
 }
 
 export async function getExplanation(
-  clusterId: number
+  clusterId?: number,
+  articleId?: number
 ): Promise<ExplainResponse> {
-  return fetchJSON(`/api/explain?cluster_id=${clusterId}`);
+  const params = new URLSearchParams();
+  if (clusterId) params.set("cluster_id", String(clusterId));
+  if (articleId) params.set("article_id", String(articleId));
+  return fetchJSON(`/api/explain?${params.toString()}`);
 }
 
 export async function sendChatMessage(

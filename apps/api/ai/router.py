@@ -286,9 +286,13 @@ class AIRouter:
     ) -> tuple[list[Optional[str]], list[int]]:
         """Check Redis for cached translations. Returns (results, uncached_indices)."""
         r = await get_redis()
+        if r is None:
+            results: list[Optional[str]] = [None] * len(texts)
+            uncached = [i for i, t in enumerate(texts) if t.strip()]
+            return results, uncached
         keys = [self._translate_cache_key(t, target_language) for t in texts]
         cached = await r.mget(keys)
-        results: list[Optional[str]] = list(cached)
+        results = list(cached)
         uncached = [i for i, v in enumerate(results) if v is None and texts[i].strip()]
         return results, uncached
 
@@ -297,6 +301,8 @@ class AIRouter:
     ):
         """Cache individual translations in Redis."""
         r = await get_redis()
+        if r is None:
+            return
         pipe = r.pipeline()
         for text, translation in zip(texts, translations):
             if text.strip():
@@ -516,12 +522,22 @@ class AIRouter:
         if text.startswith("```"):
             lines = text.split("\n")
             lines = [l for l in lines if not l.strip().startswith("```")]
-            text = "\n".join(lines)
+            text = "\n".join(lines).strip()
+        # Try direct parse first
         try:
             return json.loads(text)
         except json.JSONDecodeError:
-            logger.warning(f"Failed to parse JSON from {model_type}: {text[:200]}")
-            raise
+            pass
+        # Try extracting JSON object from surrounding text
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            try:
+                return json.loads(text[start : end + 1])
+            except json.JSONDecodeError:
+                pass
+        logger.warning(f"Failed to parse JSON from {model_type}: {text[:200]}")
+        raise json.JSONDecodeError("Could not extract JSON", text, 0)
 
     # ── Anthropic (Claude) ────────────────────────────────────────
 

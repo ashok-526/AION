@@ -232,7 +232,8 @@ async def cluster_articles(db: AsyncSession) -> int:
             if has_embedding:
                 try:
                     r = await get_redis()
-                    await r.delete(f"cache:centroid:{matched_cluster.cluster_id}")
+                    if r is not None:
+                        await r.delete(f"cache:centroid:{matched_cluster.cluster_id}")
                 except Exception:
                     pass
         else:
