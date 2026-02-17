@@ -1,4 +1,4 @@
-"""Story + Cluster + Explain endpoints."""
+"""Story + Cluster + Explain + On-demand Summarize endpoints."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +8,7 @@ from apps.api.database import get_db, Article, Cluster
 from apps.api.redis_client import cache_get, cache_set
 from apps.api.services.story import get_cluster_detail, get_story
 from packages.shared.constants import CACHE_TTL_EXPLAIN
-from packages.shared.schemas import ClusterRead, ExplainResponse, StoryIntelligence
+from packages.shared.schemas import AISummaryResponse, ClusterRead, ExplainResponse, StoryIntelligence
 
 from sqlalchemy import select
 
@@ -97,6 +97,35 @@ async def explain(
         title=article.title,
         snippet=article.raw_snippet or "",
         source=article.source,
+    )
+
+    await cache_set(cache_key, result.model_dump(), ttl=CACHE_TTL_EXPLAIN)
+    return result
+
+
+@router.get("/summarize/{article_id}")
+async def summarize_article(
+    article_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> AISummaryResponse:
+    """Generate on-demand AI summary for any individual article."""
+    cache_key = f"summarize:{article_id}"
+    cached = await cache_get(cache_key)
+    if cached:
+        return AISummaryResponse(**cached)
+
+    art_result = await db.execute(
+        select(Article).where(Article.id == article_id)
+    )
+    article = art_result.scalar_one_or_none()
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    ai = get_ai_router()
+    result = await ai.summarize_cluster(
+        titles=[article.title],
+        snippets=[article.raw_snippet or ""],
+        sources=[article.source],
     )
 
     await cache_set(cache_key, result.model_dump(), ttl=CACHE_TTL_EXPLAIN)

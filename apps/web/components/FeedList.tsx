@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence } from "framer-motion";
 import type { FeedItem } from "@/types";
 import FeedCard from "./FeedCard";
 
@@ -25,28 +24,37 @@ export default function FeedList({
 }: Props) {
   if (loading) {
     return (
-      <div className="flex flex-col">
-        {/* Lead skeleton */}
-        <div className="pb-5 mb-5 border-b border-[var(--color-border)] animate-pulse">
-          <div className="w-full aspect-[16/9] bg-[var(--color-bg-tertiary)] mb-3" />
-          <div className="h-3 bg-[var(--color-bg-tertiary)] w-20 mb-3" />
-          <div className="h-8 bg-[var(--color-bg-tertiary)] w-3/4 mb-2" />
-          <div className="h-4 bg-[var(--color-bg-tertiary)] w-full mb-1" />
-          <div className="h-4 bg-[var(--color-bg-tertiary)] w-2/3" />
-        </div>
-        {/* Standard skeletons */}
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="py-4 border-b border-[var(--color-border)] animate-pulse">
-            <div className="flex gap-4">
-              <div className="flex-1 space-y-2">
-                <div className="h-3 bg-[var(--color-bg-tertiary)] w-16" />
-                <div className="h-5 bg-[var(--color-bg-tertiary)] w-3/4" />
-                <div className="h-4 bg-[var(--color-bg-tertiary)] w-full" />
-              </div>
-              <div className="w-[150px] h-[100px] bg-[var(--color-bg-tertiary)]" />
-            </div>
+      <div>
+        {/* Hero skeleton */}
+        <div className="nyt-hero-grid border-b border-[var(--color-border)] pb-6 mb-0">
+          <div className="pr-6 border-r border-[var(--color-border)] animate-pulse">
+            <div className="w-full aspect-[16/9] bg-[var(--color-bg-tertiary)] mb-4" />
+            <div className="h-3 bg-[var(--color-bg-tertiary)] w-20 mb-3" />
+            <div className="h-10 bg-[var(--color-bg-tertiary)] w-[90%] mb-2" />
+            <div className="h-4 bg-[var(--color-bg-tertiary)] w-full mb-1" />
+            <div className="h-4 bg-[var(--color-bg-tertiary)] w-2/3" />
           </div>
-        ))}
+          <div className="pl-6 space-y-4 animate-pulse">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="pb-4 border-b border-[var(--color-border)] last:border-b-0">
+                <div className="h-2.5 bg-[var(--color-bg-tertiary)] w-16 mb-2" />
+                <div className="h-5 bg-[var(--color-bg-tertiary)] w-full mb-1" />
+                <div className="h-4 bg-[var(--color-bg-tertiary)] w-3/4" />
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Three-col skeleton */}
+        <div className="nyt-three-col mt-5">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="nyt-story-col animate-pulse">
+              <div className="w-full aspect-[4/3] bg-[var(--color-bg-tertiary)] mb-3" />
+              <div className="h-2.5 bg-[var(--color-bg-tertiary)] w-16 mb-2" />
+              <div className="h-5 bg-[var(--color-bg-tertiary)] w-full mb-1" />
+              <div className="h-4 bg-[var(--color-bg-tertiary)] w-2/3" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -54,84 +62,118 @@ export default function FeedList({
   if (items.length === 0) {
     return (
       <div className="text-center py-20">
-        <h3 className="headline-md mb-2">No Stories Yet</h3>
-        <p className="text-[14px] text-[var(--color-text-secondary)]">
+        <h3 className="headline-lg mb-2">No Stories Yet</h3>
+        <p className="text-[14px] text-[var(--color-text-secondary)]" style={{ fontFamily: "var(--font-body)" }}>
           Try a different edition or section.
         </p>
       </div>
     );
   }
 
-  const leadItem = items[0];
-  const restItems = items.slice(1);
-  // Right column compact items (first 4 after lead)
-  const sideItems = restItems.slice(0, 4);
-  // Remaining items below
-  const remainingItems = restItems.slice(4);
+  // Distribute items into NYT-style sections
+  const hero = items[0];
+  const heroSide = items.slice(1, 5); // 4 compact headlines beside hero
+  const sectionA = items.slice(5, 8); // 3-column section
+  const sectionB = items.slice(8, 12); // 2+2 section
+  const remaining = items.slice(12);
 
   return (
     <div>
-      {/* NYT-style grid: Lead left, compact list right */}
-      <div className="flex gap-0">
-        {/* Lead story - left column */}
-        <div className="flex-1 pr-5 border-r border-[var(--color-border)]">
-          <AnimatePresence mode="popLayout">
-            <FeedCard
-              key={leadItem.id}
-              item={leadItem}
-              index={0}
-              isSelected={selectedId === leadItem.id}
-              onClick={() => onSelect(leadItem.id)}
-              variant="lead"
-            />
-          </AnimatePresence>
+      {/* ════════════════════════════════════════════════════════════
+          SECTION 1: HERO GRID — Big lead left, compact right
+          ════════════════════════════════════════════════════════════ */}
+      <div className="nyt-hero-grid pb-5 border-b border-[var(--color-border)]">
+        {/* Lead story — large */}
+        <div className="pr-6 border-r border-[var(--color-border)]">
+          <FeedCard item={hero} onClick={() => onSelect(hero.id)} variant="hero" />
         </div>
 
-        {/* Right column - compact headlines */}
-        {sideItems.length > 0 && (
-          <div className="w-[280px] pl-5 flex-shrink-0">
-            <AnimatePresence mode="popLayout">
-              {sideItems.map((item, index) => (
-                <FeedCard
-                  key={item.id}
-                  item={item}
-                  index={index + 1}
-                  isSelected={selectedId === item.id}
-                  onClick={() => onSelect(item.id)}
-                  variant="compact"
-                />
-              ))}
-            </AnimatePresence>
+        {/* Right column — compact headlines */}
+        {heroSide.length > 0 && (
+          <div className="pl-6">
+            {heroSide.map((item, i) => (
+              <FeedCard
+                key={item.id}
+                item={item}
+                onClick={() => onSelect(item.id)}
+                variant="compact"
+                isLast={i === heroSide.length - 1}
+              />
+            ))}
           </div>
         )}
       </div>
 
-      {/* Remaining stories - standard list with rule */}
-      {remainingItems.length > 0 && (
+      {/* ════════════════════════════════════════════════════════════
+          SECTION 2: THREE-COLUMN with images
+          ════════════════════════════════════════════════════════════ */}
+      {sectionA.length > 0 && (
         <>
-          <hr className="rule-strong mt-2 mb-0" />
-          <AnimatePresence mode="popLayout">
-            {remainingItems.map((item, index) => (
-              <FeedCard
+          <div className="nyt-section-header mt-4">
+            <h2>More Top Stories</h2>
+          </div>
+          <div className="nyt-three-col border-b border-[var(--color-border)]">
+            {sectionA.map((item, i) => (
+              <div
                 key={item.id}
-                item={item}
-                index={index + 5}
-                isSelected={selectedId === item.id}
-                onClick={() => onSelect(item.id)}
-                variant="standard"
-              />
+                className={`nyt-story-col ${i === 0 ? "pl-0" : ""} ${i === sectionA.length - 1 ? "pr-0" : ""}`}
+              >
+                <FeedCard item={item} onClick={() => onSelect(item.id)} variant="column" />
+              </div>
             ))}
-          </AnimatePresence>
+          </div>
+        </>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════
+          SECTION 3: TWO-COLUMN section
+          ════════════════════════════════════════════════════════════ */}
+      {sectionB.length > 0 && (
+        <>
+          <div className="nyt-section-header mt-4">
+            <h2>Also in the News</h2>
+          </div>
+          <div className="nyt-two-col border-b border-[var(--color-border)]">
+            {sectionB.map((item, i) => (
+              <div
+                key={item.id}
+                className={`nyt-story-col ${i === 0 || i === 2 ? "pl-0" : ""} ${i === 1 || i === 3 ? "pr-0" : ""}`}
+              >
+                <FeedCard item={item} onClick={() => onSelect(item.id)} variant="standard" />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════
+          SECTION 4: REMAINING STORIES — list format
+          ════════════════════════════════════════════════════════════ */}
+      {remaining.length > 0 && (
+        <>
+          <div className="nyt-section-header mt-4">
+            <h2>Latest</h2>
+          </div>
+          <div className="nyt-three-col">
+            {remaining.map((item, i) => (
+              <div
+                key={item.id}
+                className={`nyt-story-col ${i % 3 === 0 ? "pl-0" : ""} ${i % 3 === 2 ? "pr-0" : ""}`}
+              >
+                <FeedCard item={item} onClick={() => onSelect(item.id)} variant="list" />
+              </div>
+            ))}
+          </div>
         </>
       )}
 
       {/* Load More */}
       {hasMore && onLoadMore && (
-        <div className="mt-6 text-center">
+        <div className="mt-8 text-center border-t border-[var(--color-border)] pt-6">
           <button
             onClick={onLoadMore}
             disabled={loadingMore}
-            className="px-8 py-2.5 border border-[var(--color-border)] text-[13px] font-medium tracking-wider uppercase hover:bg-[var(--color-bg-secondary)] transition-colors disabled:opacity-50"
+            className="px-10 py-3 border border-[var(--color-text-primary)] text-[13px] font-semibold tracking-wider uppercase hover:bg-[var(--color-bg-inverse)] hover:text-white transition-colors disabled:opacity-50"
           >
             {loadingMore ? (
               <span className="flex items-center gap-2 justify-center">
@@ -141,15 +183,15 @@ export default function FeedList({
                 Loading...
               </span>
             ) : (
-              "Load More Stories"
+              "Show More"
             )}
           </button>
         </div>
       )}
 
-      {/* Footer */}
-      <div className="mt-4 pt-4 border-t border-[var(--color-border)] text-[12px] text-center text-[var(--color-text-tertiary)]">
-        {items.length} stories{hasMore ? " — more available" : ""}
+      {/* Story count footer */}
+      <div className="mt-6 pt-4 border-t border-[var(--color-border)] text-[11px] text-center text-[var(--color-text-tertiary)]">
+        {items.length} stories{hasMore ? " \u2014 more available" : ""}
       </div>
     </div>
   );

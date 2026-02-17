@@ -78,6 +78,12 @@ export async function getCluster(clusterId: number): Promise<ClusterRead> {
   return fetchJSON(`/api/cluster/${clusterId}`);
 }
 
+export async function getSummary(
+  articleId: number
+): Promise<{ summary: string; key_points: string[]; entities: Record<string, string[]>; why_trending: string }> {
+  return fetchJSON(`/api/summarize/${articleId}`);
+}
+
 export async function getExplanation(
   clusterId?: number,
   articleId?: number

@@ -328,7 +328,11 @@ function formatCategoryLabel(category: string): string {
 }
 
 // ── Main Component ──────────────────────────────────────────────
-export default function MarketDashboard() {
+interface MarketDashboardProps {
+  onSelectArticle?: (id: number) => void;
+}
+
+export default function MarketDashboard({ onSelectArticle }: MarketDashboardProps) {
   const [tab, setTab] = useState<Tab>("overview");
   const [visaConfigured, setVisaConfigured] = useState(false);
 
@@ -546,11 +550,9 @@ export default function MarketDashboard() {
 
           {marketNews.length > 0 && (
             <div className="space-y-3">
-              <a
-                href={marketNews[0].url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group block border border-[var(--color-border)] bg-white overflow-hidden"
+              <div
+                onClick={() => onSelectArticle?.(marketNews[0].id)}
+                className="group block border border-[var(--color-border)] bg-white overflow-hidden cursor-pointer"
               >
                 <div className="relative aspect-[16/9] bg-[var(--color-bg-secondary)] overflow-hidden">
                   {marketNews[0].image_url ? (
@@ -577,16 +579,14 @@ export default function MarketDashboard() {
                     {marketNews[0].source} · {timeAgo(marketNews[0].published_at)}
                   </div>
                 </div>
-              </a>
+              </div>
 
               <div className="space-y-2">
                 {marketNews.slice(1, 10).map((item) => (
-                  <a
+                  <div
                     key={item.id}
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex gap-3 p-2.5 border border-[var(--color-border)] bg-white"
+                    onClick={() => onSelectArticle?.(item.id)}
+                    className="group flex gap-3 p-2.5 border border-[var(--color-border)] bg-white cursor-pointer"
                   >
                     <div className="w-[96px] h-[68px] shrink-0 bg-[var(--color-bg-secondary)] overflow-hidden">
                       {item.image_url ? (
@@ -614,7 +614,7 @@ export default function MarketDashboard() {
                         {item.source} · {timeAgo(item.published_at)}
                       </div>
                     </div>
-                  </a>
+                  </div>
                 ))}
               </div>
             </div>
@@ -653,11 +653,9 @@ export default function MarketDashboard() {
                 return (
                   <div key={cat} className="border border-[var(--color-border)] overflow-hidden bg-white">
                     {/* Category hero card */}
-                    <a
-                      href={lead.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group block relative"
+                    <div
+                      onClick={() => onSelectArticle?.(lead.id)}
+                      className="group block relative cursor-pointer"
                     >
                       {lead.image_url ? (
                         <div className="relative h-[140px] overflow-hidden">
@@ -706,18 +704,16 @@ export default function MarketDashboard() {
                           </div>
                         </div>
                       )}
-                    </a>
+                    </div>
 
                     {/* Related stories underneath */}
                     {rest.length > 0 && (
                       <div className="divide-y divide-[var(--color-border)]">
                         {rest.map((item) => (
-                          <a
+                          <div
                             key={item.id}
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="group flex gap-2.5 px-3 py-2.5 hover:bg-[var(--color-bg-secondary)] transition-colors"
+                            onClick={() => onSelectArticle?.(item.id)}
+                            className="group flex gap-2.5 px-3 py-2.5 hover:bg-[var(--color-bg-secondary)] transition-colors cursor-pointer"
                           >
                             {item.image_url && (
                               <div className="w-[60px] h-[44px] shrink-0 overflow-hidden bg-[var(--color-bg-tertiary)]">
@@ -737,7 +733,7 @@ export default function MarketDashboard() {
                                 {item.source} &middot; {timeAgo(item.published_at)}
                               </div>
                             </div>
-                          </a>
+                          </div>
                         ))}
                       </div>
                     )}

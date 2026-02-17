@@ -13,6 +13,7 @@ interface Props {
   articleId: number | null;
   onClose: () => void;
   language: string;
+  onSelectArticle?: (id: number) => void;
 }
 
 type AITab = "summary" | "analysis" | "chat" | "deep-explain";
@@ -33,7 +34,7 @@ interface TranslatedContent {
   entityValues: string[];
 }
 
-export default function StoryPanel({ articleId, onClose, language }: Props) {
+export default function StoryPanel({ articleId, onClose, language, onSelectArticle }: Props) {
   const [story, setStory] = useState<StoryIntelligence | null>(null);
   const [explain, setExplain] = useState<ExplainResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -193,7 +194,7 @@ export default function StoryPanel({ articleId, onClose, language }: Props) {
 
   /* ── Empty state — show market dashboard ─────────────────── */
   if (!articleId) {
-    return <MarketDashboard />;
+    return <MarketDashboard onSelectArticle={onSelectArticle} />;
   }
 
   /* ── Loading state ───────────────────────────────────────── */
@@ -667,18 +668,16 @@ export default function StoryPanel({ articleId, onClose, language }: Props) {
             <hr className="rule mb-4" />
             <h4 className="kicker mb-3">More on This Story</h4>
             {story.related_articles.slice(0, 5).map((rel, i) => (
-              <a
+              <div
                 key={rel.id}
-                href={rel.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block py-2.5 border-b border-[var(--color-border)] last:border-b-0 group nyt-hover"
+                onClick={() => onSelectArticle?.(rel.id)}
+                className="block py-2.5 border-b border-[var(--color-border)] last:border-b-0 group nyt-hover cursor-pointer"
               >
                 <div className="headline-sm nyt-headline text-[13px]">{t.relatedTitles[i] || rel.title}</div>
                 <div className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5">
                   {rel.source} &middot; {timeAgo(rel.published_at)}
                 </div>
-              </a>
+              </div>
             ))}
           </div>
         )}

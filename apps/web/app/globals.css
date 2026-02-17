@@ -14,8 +14,8 @@
   --color-border-strong: #ccc;
   --color-border-rule: #121212;
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-headline: "Playfair Display", Georgia, "Times New Roman", serif;
-  --font-body: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  --font-headline: "nyt-cheltenham", "Playfair Display", Georgia, "Times New Roman", serif;
+  --font-body: "nyt-imperial", "Libre Baskerville", Georgia, "Times New Roman", serif;
 }
 
 body {
@@ -51,9 +51,9 @@ body {
 
 /* -- NYT Section Nav ---------------------------------------- */
 .section-nav-item {
-  font-size: 13px;
-  font-weight: 500;
-  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 10px 14px;
   color: var(--color-text-secondary);
   border-bottom: 2px solid transparent;
   transition: all 120ms ease;
@@ -65,15 +65,23 @@ body {
 }
 .section-nav-item.active {
   color: var(--color-text-primary);
-  font-weight: 600;
+  font-weight: 700;
   border-bottom-color: var(--color-text-primary);
 }
 
 /* -- Headline typography ------------------------------------ */
+.headline-hero {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(28px, 3.2vw, 42px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
 .headline-xl {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 32px;
+  font-size: 28px;
   line-height: 1.12;
   letter-spacing: -0.015em;
   color: var(--color-text-primary);
@@ -81,7 +89,7 @@ body {
 .headline-lg {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.15;
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
@@ -89,8 +97,8 @@ body {
 .headline-md {
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: 18px;
-  line-height: 1.2;
+  font-size: 17px;
+  line-height: 1.22;
   letter-spacing: -0.005em;
   color: var(--color-text-primary);
 }
@@ -98,7 +106,7 @@ body {
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 15px;
-  line-height: 1.25;
+  line-height: 1.28;
   color: var(--color-text-primary);
 }
 
@@ -106,7 +114,7 @@ body {
 .body-serif {
   font-family: var(--font-body);
   font-size: 15px;
-  line-height: 1.7;
+  line-height: 1.72;
   color: var(--color-text-secondary);
 }
 
@@ -304,12 +312,8 @@ body {
 
 /* -- World Marquee ------------------------------------------ */
 @keyframes world-marquee-scroll {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
 
 .world-marquee-mask {
@@ -392,4 +396,105 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   padding: 2px 6px;
+}
+
+/* ============================================================
+   NYT-STYLE EDITORIAL GRID SYSTEM
+   ============================================================ */
+
+/* Story overlay / article page */
+.story-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: white;
+  overflow-y: auto;
+  animation: slide-up 0.25s ease-out;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* NYT-style editorial grid */
+.nyt-grid {
+  display: grid;
+  gap: 0;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Hero section: large lead left, smaller stories right */
+.nyt-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 0;
+}
+
+@media (max-width: 900px) {
+  .nyt-hero-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Three-column story section */
+.nyt-three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
+}
+
+@media (max-width: 768px) {
+  .nyt-three-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Two-column section */
+.nyt-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+@media (max-width: 768px) {
+  .nyt-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Section header pattern like NYT */
+.nyt-section-header {
+  padding: 12px 0 8px;
+  margin-bottom: 0;
+  border-top: 3px solid var(--color-text-primary);
+}
+.nyt-section-header h2 {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-primary);
+}
+
+/* Story card with vertical divider */
+.nyt-story-col {
+  padding: 16px 20px;
+}
+.nyt-story-col + .nyt-story-col {
+  border-left: 1px solid var(--color-border);
+}
+
+@media (max-width: 768px) {
+  .nyt-story-col + .nyt-story-col {
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+/* Opinion column styling */
+.nyt-opinion {
+  background: var(--color-bg-secondary);
 }

@@ -9,15 +9,11 @@ import { useNotifications } from "@/hooks/useNotifications";
 import Header, { LANGUAGES } from "@/components/Header";
 import CategoryChips from "@/components/CategoryChips";
 import FeedList from "@/components/FeedList";
-import StoryPanel from "@/components/StoryPanel";
+import StoryOverlay from "@/components/StoryOverlay";
 import AuthModal from "@/components/AuthModal";
 import PreferencesModal from "@/components/PreferencesModal";
 import NotificationBell from "@/components/NotificationBell";
-import CountrySidebar from "@/components/CountrySidebar";
-import WeatherWidget from "@/components/WeatherWidget";
 import LatestWorldMarquee from "@/components/LatestWorldMarquee";
-import ICCBanner from "@/components/ICCBanner";
-import AvatarCreatorModal from "@/components/AvatarCreatorModal";
 import ChatWidget from "@/components/ChatWidget";
 
 const DEFAULT_COUNTRIES: CountryMeta[] = [
@@ -72,7 +68,7 @@ const DEFAULT_COUNTRIES: CountryMeta[] = [
 ];
 
 const DEFAULT_CATEGORIES: CategoryMeta[] = [
-  { id: "general", label: "General" },
+  { id: "general", label: "Top Stories" },
   { id: "world", label: "World" },
   { id: "politics", label: "Politics" },
   { id: "economy", label: "Economy" },
@@ -88,18 +84,18 @@ const DEFAULT_CATEGORIES: CategoryMeta[] = [
   { id: "ai", label: "AI" },
   { id: "health", label: "Health" },
   { id: "education", label: "Education" },
-  { id: "environment", label: "Environment" },
+  { id: "environment", label: "Climate" },
   { id: "crime", label: "Crime" },
   { id: "legal", label: "Legal" },
   { id: "religion", label: "Religion" },
   { id: "sports", label: "Sports" },
-  { id: "entertainment", label: "Entertainment" },
+  { id: "entertainment", label: "Arts" },
   { id: "lifestyle", label: "Lifestyle" },
   { id: "food", label: "Food" },
   { id: "travel", label: "Travel" },
-  { id: "fashion", label: "Fashion" },
+  { id: "fashion", label: "Style" },
   { id: "art", label: "Art" },
-  { id: "automotive", label: "Automotive" },
+  { id: "automotive", label: "Autos" },
   { id: "energy", label: "Energy" },
   { id: "real-estate", label: "Real Estate" },
   { id: "defense", label: "Defense" },
@@ -109,6 +105,19 @@ const DEFAULT_CATEGORIES: CategoryMeta[] = [
   { id: "opinion", label: "Opinion" },
   { id: "weather", label: "Weather" },
 ];
+
+// Country code → native language code mapping
+const COUNTRY_LANGUAGE_MAP: Record<string, string> = {
+  NP: "ne", IN: "hi", PK: "ur", BD: "bn", LK: "si",
+  CN: "zh", JP: "ja", KR: "ko", TW: "zh", HK: "zh",
+  SG: "en", TH: "th", MY: "ms", ID: "id", PH: "tl", VN: "vi",
+  AE: "ar", SA: "ar", IL: "he", TR: "tr", QA: "ar",
+  US: "en", CA: "en", MX: "es", BR: "pt", AR: "es", CO: "es", CL: "es",
+  GB: "en", DE: "de", FR: "fr", IT: "it", ES: "es", NL: "nl", SE: "sv",
+  NO: "no", PL: "pl", CH: "de", IE: "en", PT: "pt", BE: "nl",
+  AU: "en", NZ: "en",
+  ZA: "en", NG: "en", KE: "sw", EG: "ar", GH: "en",
+};
 
 export default function Home() {
   return (
@@ -139,7 +148,6 @@ function HomeInner() {
   // Modal states
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showPrefsModal, setShowPrefsModal] = useState(false);
-  const [showAvatarCreator, setShowAvatarCreator] = useState(false);
   const [notifInterval, setNotifInterval] = useState(15);
 
   // Notifications
@@ -164,7 +172,7 @@ function HomeInner() {
         setError(null);
       } catch {
         if (!silent) {
-          setError("Unable to connect to AiON API");
+          setError("Unable to connect to Aion API");
         }
       } finally {
         if (!silent) {
@@ -215,33 +223,25 @@ function HomeInner() {
   }, [country, category, mode, loadFeed]);
 
   const loadWorldTicker = useCallback(async (silent = false) => {
-    if (!silent) {
-      setWorldTickerLoading(true);
-    }
+    if (!silent) setWorldTickerLoading(true);
     try {
       const data = await getFeed("", "world", "latest", 0, 20);
       setWorldTickerItems(data.items);
     } catch {
-      // Keep current ticker items if fetch fails
+      // Keep current
     } finally {
-      if (!silent) {
-        setWorldTickerLoading(false);
-      }
+      if (!silent) setWorldTickerLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadWorldTicker();
-  }, [loadWorldTicker]);
+  useEffect(() => { loadWorldTicker(); }, [loadWorldTicker]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadWorldTicker(true);
-    }, 120_000);
+    const interval = setInterval(() => loadWorldTicker(true), 120_000);
     return () => clearInterval(interval);
   }, [loadWorldTicker]);
 
-  // Translate feed items when language changes — parallel batches, show-as-ready
+  // Translate feed items
   useEffect(() => {
     if (language === "en" || items.length === 0) {
       setDisplayItems(items);
@@ -251,29 +251,19 @@ function HomeInner() {
 
     const requestId = ++translateRef.current;
     const langName = LANGUAGES.find((l) => l.code === language)?.name || language;
-
-    // Only translate titles (skip summaries for speed — they're secondary)
     const VISIBLE_COUNT = 8;
     const visibleItems = items.slice(0, VISIBLE_COUNT);
     const restItems = items.slice(VISIBLE_COUNT);
 
-    const buildTexts = (batch: FeedItem[]) =>
-      batch.map((item) => item.title);
-
+    const buildTexts = (batch: FeedItem[]) => batch.map((item) => item.title);
     const applyTranslation = (batch: FeedItem[], translations: string[]) =>
-      batch.map((item, i) => ({
-        ...item,
-        title: translations[i] || item.title,
-      }));
+      batch.map((item, i) => ({ ...item, title: translations[i] || item.title }));
 
     setFeedTranslating(true);
     setDisplayItems(items);
 
-    // Fire both batches in parallel — show each as it arrives
     const visiblePromise = translateTexts(buildTexts(visibleItems), langName);
-    const restPromise = restItems.length > 0
-      ? translateTexts(buildTexts(restItems), langName)
-      : null;
+    const restPromise = restItems.length > 0 ? translateTexts(buildTexts(restItems), langName) : null;
 
     let translatedVisible: FeedItem[] | null = null;
     let translatedRest: FeedItem[] | null = null;
@@ -282,55 +272,60 @@ function HomeInner() {
       .then((resp) => {
         if (translateRef.current !== requestId) return;
         translatedVisible = applyTranslation(visibleItems, resp.translations);
-        // Show visible translations immediately + original rest (or translated rest if already done)
         setDisplayItems([...translatedVisible, ...(translatedRest || restItems)]);
       })
-      .catch(() => {
-        if (translateRef.current !== requestId) return;
-        translatedVisible = visibleItems;
-      });
+      .catch(() => { if (translateRef.current === requestId) translatedVisible = visibleItems; });
 
     if (restPromise) {
       restPromise
         .then((resp) => {
           if (translateRef.current !== requestId) return;
           translatedRest = applyTranslation(restItems, resp.translations);
-          // Show rest translations + visible (already translated or original)
           setDisplayItems([...(translatedVisible || visibleItems), ...translatedRest]);
         })
-        .catch(() => {
-          if (translateRef.current !== requestId) return;
-          translatedRest = restItems;
-        });
+        .catch(() => { if (translateRef.current === requestId) translatedRest = restItems; });
     }
 
-    // When all done, clear the translating indicator
     Promise.allSettled(restPromise ? [visiblePromise, restPromise] : [visiblePromise])
-      .then(() => {
-        if (translateRef.current === requestId) setFeedTranslating(false);
-      });
+      .then(() => { if (translateRef.current === requestId) setFeedTranslating(false); });
   }, [language, items]);
 
   const langName = LANGUAGES.find((l) => l.code === language)?.name || "";
 
+  // Handle country change — auto-set native language
+  const handleCountryChange = useCallback((code: string) => {
+    setCountry(code);
+    if (code && COUNTRY_LANGUAGE_MAP[code]) {
+      setLanguage(COUNTRY_LANGUAGE_MAP[code]);
+    } else if (!code) {
+      // Global — reset to English
+      setLanguage("en");
+    }
+  }, []);
+
+  // Close story overlay with Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && selectedId) setSelectedId(null);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedId]);
+
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      {/* ICC T20 World Cup Banner */}
-      <ICCBanner onSelectStory={setSelectedId} />
-
-      {/* NYT-style Header with masthead */}
+      {/* ── NYT HEADER ────────────────────────────────────────── */}
       <Header
         connected={connected}
         countries={countries}
         selectedCountry={country}
-        onCountryChange={setCountry}
+        onCountryChange={handleCountryChange}
         selectedLanguage={language}
         onLanguageChange={setLanguage}
         user={user}
         onSignInClick={() => setShowAuthModal(true)}
         onSignOutClick={logout}
         onPreferencesClick={() => setShowPrefsModal(true)}
-        onAvatarCreatorClick={() => setShowAvatarCreator(true)}
         notificationBell={
           <NotificationBell
             notifications={notifications}
@@ -345,24 +340,28 @@ function HomeInner() {
         onSearchSelect={setSelectedId}
       />
 
+      {/* ── WORLD TICKER ──────────────────────────────────────── */}
       <LatestWorldMarquee
         items={worldTickerItems}
         loading={worldTickerLoading}
         onSelectStory={setSelectedId}
       />
 
-      {/* Section navigation bar */}
+      {/* ── SECTION NAV ───────────────────────────────────────── */}
       <CategoryChips
         categories={categories}
         selected={category}
         onSelect={setCategory}
         mode={mode}
         onModeChange={setMode}
+        countries={countries}
+        selectedCountry={country}
+        onCountryChange={handleCountryChange}
       />
 
-      {/* Error banner */}
+      {/* ── ERROR BANNER ──────────────────────────────────────── */}
       {error && (
-        <div className="max-w-[1280px] mx-auto px-5 mt-3">
+        <div className="max-w-[1200px] mx-auto px-5 mt-3">
           <div className="px-4 py-2 border border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] text-[13px] text-center">
             {error}
             {items.length > 0 && " \u2014 Showing cached data"}
@@ -370,9 +369,9 @@ function HomeInner() {
         </div>
       )}
 
-      {/* Translation indicator for feed */}
+      {/* ── TRANSLATION INDICATOR ─────────────────────────────── */}
       {feedTranslating && (
-        <div className="max-w-[1280px] mx-auto px-5 mt-2">
+        <div className="max-w-[1200px] mx-auto px-5 mt-2">
           <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-[#eef2ff] border border-[#c7d2fe] text-[12px] text-[#4338ca]">
             <svg className="animate-spin w-3 h-3" viewBox="0 0 16 16" fill="none">
               <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="30 12" />
@@ -382,70 +381,124 @@ function HomeInner() {
         </div>
       )}
 
-      {/* Main content area — feed, story, country sidebar */}
-      <main className="flex-1 flex overflow-hidden">
-        {/* Left: Feed list */}
-        <div className="flex-1 min-w-0 overflow-y-auto border-r border-[var(--color-border)]">
-          <div className="max-w-[960px] mx-auto px-5 py-5">
-            <FeedList
-              items={displayItems}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              loading={loading && items.length === 0}
-              hasMore={hasMore}
-              loadingMore={loadingMore}
-              onLoadMore={loadMore}
-            />
-          </div>
-        </div>
-
-        {/* Middle: Story detail panel */}
-        <div className="hidden lg:block lg:w-[520px] xl:w-[600px] 2xl:w-[680px] overflow-y-auto bg-white">
-          <StoryPanel
-            articleId={selectedId}
-            onClose={() => setSelectedId(null)}
-            language={language}
-          />
-        </div>
-
-        {/* Right: Weather + Country sidebar */}
-        <div className="hidden md:block w-[140px] shrink-0 overflow-y-auto border-l border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-          <WeatherWidget />
-          <CountrySidebar
-            countries={countries}
-            selectedCountry={country}
-            onCountryChange={setCountry}
+      {/* ── MAIN CONTENT — NYT FULL-WIDTH EDITORIAL GRID ──────── */}
+      <main className="flex-1">
+        <div className="max-w-[1200px] mx-auto px-5 py-5">
+          <FeedList
+            items={displayItems}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            loading={loading && items.length === 0}
+            hasMore={hasMore}
+            loadingMore={loadingMore}
+            onLoadMore={loadMore}
           />
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-        <div className="max-w-[1280px] mx-auto px-5 py-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-            <div className="text-[11px] text-[var(--color-text-tertiary)]">
-              &copy; {new Date().getFullYear()} AiON. All rights reserved.
+      {/* ── NYT-STYLE FOOTER ──────────────────────────────────── */}
+      <footer className="border-t-2 border-[var(--color-text-primary)] bg-white">
+        <div className="max-w-[1200px] mx-auto px-5">
+          {/* Logo row */}
+          <div className="py-4 border-b border-[var(--color-border)] flex items-center justify-between">
+            <img src="/aion.png" alt="Aion" className="h-[36px] w-auto" />
+            <div className="flex items-center gap-1.5">
+              <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-[#1a8d1a] animate-pulse-live" : "bg-[var(--color-text-tertiary)]"}`} />
+              <span className="text-[10px] text-[var(--color-text-tertiary)] font-medium uppercase tracking-wider">
+                {connected ? "Live" : "Offline"}
+              </span>
             </div>
-            <div className="flex items-center gap-4 text-[11px] text-[var(--color-text-tertiary)]">
-              <span>Privacy Policy</span>
-              <span className="hidden sm:inline">&middot;</span>
-              <span>Terms of Service</span>
-              <span className="hidden sm:inline">&middot;</span>
-              <span>Contact</span>
+          </div>
+
+          {/* Links grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 py-6">
+            <div>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider mb-3">News</h4>
+              <div className="space-y-1.5 text-[12px] text-[var(--color-text-secondary)]">
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("world"); window.scrollTo(0, 0); }}>World</div>
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("politics"); window.scrollTo(0, 0); }}>Politics</div>
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("business"); window.scrollTo(0, 0); }}>Business</div>
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("technology"); window.scrollTo(0, 0); }}>Technology</div>
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("science"); window.scrollTo(0, 0); }}>Science</div>
+              </div>
             </div>
+            <div>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider mb-3">Arts</h4>
+              <div className="space-y-1.5 text-[12px] text-[var(--color-text-secondary)]">
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("entertainment"); window.scrollTo(0, 0); }}>Entertainment</div>
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("art"); window.scrollTo(0, 0); }}>Art & Design</div>
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("fashion"); window.scrollTo(0, 0); }}>Style</div>
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("food"); window.scrollTo(0, 0); }}>Food</div>
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("travel"); window.scrollTo(0, 0); }}>Travel</div>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider mb-3">More</h4>
+              <div className="space-y-1.5 text-[12px] text-[var(--color-text-secondary)]">
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("sports"); window.scrollTo(0, 0); }}>Sports</div>
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("health"); window.scrollTo(0, 0); }}>Health</div>
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("environment"); window.scrollTo(0, 0); }}>Climate</div>
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("real-estate"); window.scrollTo(0, 0); }}>Real Estate</div>
+                <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => { setCategory("opinion"); window.scrollTo(0, 0); }}>Opinion</div>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider mb-3">AI Features</h4>
+              <div className="space-y-1.5 text-[12px] text-[var(--color-text-secondary)]">
+                <div>AI Summaries</div>
+                <div>Deep Analysis</div>
+                <div>Ask AI</div>
+                <div>Multi-Source</div>
+                <div>60+ Languages</div>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider mb-3">Account</h4>
+              <div className="space-y-1.5 text-[12px] text-[var(--color-text-secondary)]">
+                {user ? (
+                  <>
+                    <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => setShowPrefsModal(true)}>Preferences</div>
+                    <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={logout}>Sign Out</div>
+                  </>
+                ) : (
+                  <div className="cursor-pointer hover:text-[var(--color-text-primary)]" onClick={() => setShowAuthModal(true)}>Sign In</div>
+                )}
+              </div>
+            </div>
+            <div>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider mb-3">About</h4>
+              <div className="space-y-1.5 text-[12px] text-[var(--color-text-secondary)]">
+                <div>Privacy Policy</div>
+                <div>Terms of Service</div>
+                <div>Contact</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Copyright */}
+          <div className="py-4 border-t border-[var(--color-border)] text-[11px] text-[var(--color-text-tertiary)] text-center">
+            &copy; {new Date().getFullYear()} Aion. AI-Powered Global News Intelligence.
           </div>
         </div>
       </footer>
 
-      {/* Auth Modal */}
+      {/* ── STORY OVERLAY (full-screen, like NYT article page) ── */}
+      {selectedId && (
+        <StoryOverlay
+          articleId={selectedId}
+          onClose={() => setSelectedId(null)}
+          language={language}
+          onSelectArticle={setSelectedId}
+        />
+      )}
+
+      {/* ── MODALS ────────────────────────────────────────────── */}
       <AuthModal
         open={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         onLogin={login}
         onRegister={register}
       />
-
-      {/* Preferences Modal */}
       <PreferencesModal
         open={showPrefsModal}
         onClose={() => setShowPrefsModal(false)}
@@ -454,13 +507,7 @@ function HomeInner() {
         onSaved={(prefs: UserPreferences) => setNotifInterval(prefs.notification_interval)}
       />
 
-      {/* Avatar Creator Modal */}
-      <AvatarCreatorModal
-        open={showAvatarCreator}
-        onClose={() => setShowAvatarCreator(false)}
-      />
-
-      {/* Floating AI Chat Widget */}
+      {/* ── FLOATING AI CHAT ──────────────────────────────────── */}
       <ChatWidget />
     </div>
   );
