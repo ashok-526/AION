@@ -1,3 +1,11 @@
+![AION](aion.png)
+
+[![Live](https://img.shields.io/badge/live-aionproject.vercel.app-0B7285?style=flat-square)](https://aionproject.vercel.app/)
+![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?style=flat-square&logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-storage-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-cache%20%C2%B7%20pub%2Fsub-DC382D?style=flat-square&logo=redis&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-frontend-000000?style=flat-square&logo=nextdotjs&logoColor=white)
+
 # AiON — AI-Powered Global News Discovery Platform
 
 A real-time, multi-source news intelligence platform with AI-powered summaries, trending detection, story clustering, and deep analysis.
